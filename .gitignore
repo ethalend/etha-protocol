@@ -1,0 +1,15 @@
+node_modules/
+build/
+artifacts/
+cache/
+bin/
+package-lock.json
+.env
+yarn.lock
+yarn-error.log
+commands.txt
+flats/
+curveAddresses.js
+deploy/
+deployments/
+
