@@ -76,7 +76,7 @@ contract AaveHelpers is DSMath {
 	function _stake(address erc20, uint256 amount) internal {
 		// Add same amount to distribution contract
 		address distribution = IRegistry(IWallet(address(this)).registry())
-		.distributionContract(erc20);
+			.distributionContract(erc20);
 		if (distribution != address(0)) {
 			IProtocolDistribution(distribution).stake(amount);
 		}
@@ -84,15 +84,19 @@ contract AaveHelpers is DSMath {
 
 	function _unstake(address erc20, uint256 amount) internal {
 		address distribution = IRegistry(IWallet(address(this)).registry())
-		.distributionContract(erc20);
+			.distributionContract(erc20);
 
 		if (distribution != address(0)) {
 			uint256 maxWithdrawalAmount = IProtocolDistribution(distribution)
-			.balanceOf(address(this));
+				.balanceOf(address(this));
 
-			IProtocolDistribution(distribution).withdraw(
-				amount > maxWithdrawalAmount ? maxWithdrawalAmount : amount
-			);
+			uint256 toWithdraw = amount > maxWithdrawalAmount
+				? maxWithdrawalAmount
+				: amount;
+
+			if (toWithdraw > 0) {
+				IProtocolDistribution(distribution).withdraw(toWithdraw);
+			}
 		}
 	}
 }
