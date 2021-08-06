@@ -2,6 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../interfaces/IProtocolDistribution.sol";
+import "../interfaces/IProtocolDistribution.sol";
 import "../interfaces/IDistributionFactory.sol";
 import "../interfaces/IRegistry.sol";
 import "../interfaces/IWallet.sol";
@@ -11,6 +12,12 @@ import "../interfaces/IAaveIncentives.sol";
  * @title Claim ETHA rewards for interacting with Lending Protocols
  */
 contract ClaimLogic {
+	event Claim(address indexed erc20, uint256 tokenAmt);
+
+	address public constant WMATIC = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
+
+	address public constant ETHA = 0x59E9261255644c411AfDd00bD89162d09D862e38;
+
 	/**
 	 * @dev get vault distribution factory address
 	 */
@@ -42,7 +49,7 @@ contract ClaimLogic {
 	/**
 	 * @notice read aave rewards in MATIC
 	 */
-	function getRewardsAave(address[] memory tokens)
+	function getRewardsAave(address[] memory tokens, address user)
 		external
 		view
 		returns (uint256)
@@ -50,17 +57,21 @@ contract ClaimLogic {
 		return
 			IAaveIncentives(getAaveIncentivesAddress()).getRewardsBalance(
 				tokens,
-				address(this)
+				user
 			);
 	}
 
 	/**
 	 * @notice read lending rewards in ETHA
 	 */
-	function getRewardsLending(address erc20) external view returns (uint256) {
+	function getRewardsLending(address erc20, address user)
+		external
+		view
+		returns (uint256)
+	{
 		return
 			IProtocolDistribution(getLendingDistributionAddress(erc20)).earned(
-				address(this)
+				user
 			);
 	}
 
@@ -69,7 +80,7 @@ contract ClaimLogic {
 	 */
 	function getRewardsVaults(address erc20) external view returns (uint256) {
 		address dist = IDistributionFactory(getVaultDistributionFactory())
-		.stakingRewardsInfoByStakingToken(erc20);
+			.stakingRewardsInfoByStakingToken(erc20);
 
 		return IProtocolDistribution(dist).earned(address(this));
 	}
@@ -79,18 +90,28 @@ contract ClaimLogic {
 	 */
 	function claimRewardsVaults(address erc20) external {
 		address dist = IDistributionFactory(getVaultDistributionFactory())
-		.stakingRewardsInfoByStakingToken(erc20);
+			.stakingRewardsInfoByStakingToken(erc20);
+
+		uint256 _earned = IProtocolDistribution(dist).earned(address(this));
 
 		IProtocolDistribution(dist).getReward(address(this));
+
+		emit Claim(ETHA, _earned);
 	}
 
 	/**
 	 * @notice claim lending ETHA rewards
 	 */
 	function claimRewardsLending(address erc20) external {
+		uint256 _earned = IProtocolDistribution(
+			getLendingDistributionAddress(erc20)
+		).earned(address(this));
+
 		IProtocolDistribution(getLendingDistributionAddress(erc20)).getReward(
 			address(this)
 		);
+
+		emit Claim(ETHA, _earned);
 	}
 
 	/**
@@ -104,5 +125,7 @@ contract ClaimLogic {
 			amount,
 			address(this)
 		);
+
+		emit Claim(WMATIC, amount);
 	}
 }

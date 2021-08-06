@@ -36,7 +36,7 @@ contract Vault is Ownable, Pausable, DividendToken {
 	uint256 public lastDistribution;
 	address public distribution;
 
-	modifier onlyHarvester {
+	modifier onlyHarvester() {
 		require(msg.sender == harvester);
 		_;
 	}

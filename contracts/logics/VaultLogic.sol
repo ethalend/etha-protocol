@@ -38,10 +38,14 @@ contract DSMath is Helpers {
 
 contract VaultResolver is DSMath {
 	using UniversalERC20 for IERC20;
+	using SafeMath for uint256;
 
 	event VaultDeposit(address indexed erc20, uint256 tokenAmt);
 	event VaultWithdraw(address indexed erc20, uint256 tokenAmt);
 	event VaultClaim(address indexed erc20, uint256 tokenAmt);
+	event Claim(address indexed erc20, uint256 tokenAmt);
+
+	address public constant ETHA = 0x59E9261255644c411AfDd00bD89162d09D862e38;
 
 	/**
 	 * @dev Deposit tokens to ETHA Vault
@@ -93,6 +97,8 @@ contract VaultResolver is DSMath {
 	 * @param setId store value of rewards received to memory contract
 	 */
 	function claim(IVault vault, uint256 setId) external {
+		uint256 initialBal = IERC20(ETHA).balanceOf(address(this));
+
 		uint256 claimed = vault.claim();
 
 		// set rewards received
@@ -101,6 +107,14 @@ contract VaultResolver is DSMath {
 		}
 
 		emit VaultClaim(address(vault.target()), claimed);
+
+		uint256 _claimed = IERC20(ETHA).balanceOf(address(this)).sub(
+			initialBal
+		);
+
+		if (_claimed > 0) {
+			emit Claim(ETHA, _claimed);
+		}
 	}
 }
 
