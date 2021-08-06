@@ -2,7 +2,6 @@ const {
   deployments: { fixture, get },
 } = require("hardhat");
 
-const ETHAToken = artifacts.require("ETHAToken");
 const IWallet = artifacts.require("IWallet");
 const IStrat2 = artifacts.require("IStrat2");
 const ICurveGauge = artifacts.require("ICurveGauge");
@@ -219,6 +218,9 @@ contract("Curve Vault", () => {
   });
 
   it("should be able to withdraw from ETHA vault as DAI", async function () {
+    await time.advanceBlock();
+    await time.increase(time.duration.days(1));
+
     const balance = await curveVault.balanceOf(wallet.address);
     const initialDAI = await dai.balanceOf(wallet.address);
 
@@ -240,6 +242,10 @@ contract("Curve Vault", () => {
         gas: web3.utils.toHex(5e6),
       }
     );
+
+    expectEvent(tx, "Claim", {
+      erc20: etha.address,
+    });
 
     console.log("\tGas Used:", tx.receipt.gasUsed);
 
@@ -281,13 +287,19 @@ contract("Curve Vault", () => {
     console.log("\tUser available WETH dividends", fromWei(dividends));
     expect(fromWei(dividends)).to.be.greaterThan(0);
 
-    const _vault = new web3.eth.Contract(vault.abi, vault.address);
-
     const data = await _vault.methods.claim(curveVault.address, 0).encodeABI();
 
     const tx = await wallet.execute([vault.address], [data], {
       from: user,
       gas: web3.utils.toHex(5e6),
+    });
+
+    expectEvent(tx, "VaultClaim", {
+      erc20: WETH,
+    });
+
+    expectEvent(tx, "Claim", {
+      erc20: etha.address,
     });
 
     console.log("\tGas Used:", tx.receipt.gasUsed);

@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../libs/UniversalERC20.sol";
 import "../interfaces/IVault.sol";
+import "../interfaces/IDistribution.sol";
 import "./Helpers.sol";
 
 contract DSMath is Helpers {
@@ -45,8 +46,6 @@ contract VaultResolver is DSMath {
 	event VaultClaim(address indexed erc20, uint256 tokenAmt);
 	event Claim(address indexed erc20, uint256 tokenAmt);
 
-	address public constant ETHA = 0x59E9261255644c411AfDd00bD89162d09D862e38;
-
 	/**
 	 * @dev Deposit tokens to ETHA Vault
 	 * @param vault address of vault
@@ -84,11 +83,20 @@ contract VaultResolver is DSMath {
 
 		require(vault.balanceOf(address(this)) >= realAmt, "!BALANCE");
 
+		address distToken = IDistribution(vault.distribution()).rewardsToken();
+		uint256 initialBal = IERC20(distToken).balanceOf(address(this));
+
 		IERC20(address(vault)).universalApprove(address(vault), realAmt);
-
 		vault.withdraw(realAmt);
-
 		emit VaultWithdraw(address(vault.underlying()), realAmt);
+
+		uint256 _claimed = IERC20(distToken).balanceOf(address(this)).sub(
+			initialBal
+		);
+
+		if (_claimed > 0) {
+			emit Claim(distToken, _claimed);
+		}
 	}
 
 	/**
@@ -97,7 +105,8 @@ contract VaultResolver is DSMath {
 	 * @param setId store value of rewards received to memory contract
 	 */
 	function claim(IVault vault, uint256 setId) external {
-		uint256 initialBal = IERC20(ETHA).balanceOf(address(this));
+		address distToken = IDistribution(vault.distribution()).rewardsToken();
+		uint256 initialBal = IERC20(distToken).balanceOf(address(this));
 
 		uint256 claimed = vault.claim();
 
@@ -108,12 +117,12 @@ contract VaultResolver is DSMath {
 
 		emit VaultClaim(address(vault.target()), claimed);
 
-		uint256 _claimed = IERC20(ETHA).balanceOf(address(this)).sub(
+		uint256 _claimed = IERC20(distToken).balanceOf(address(this)).sub(
 			initialBal
 		);
 
 		if (_claimed > 0) {
-			emit Claim(ETHA, _claimed);
+			emit Claim(distToken, _claimed);
 		}
 	}
 }

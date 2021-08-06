@@ -24,6 +24,8 @@ interface IVault {
 
 	function owner() external view returns (address);
 
+	function distribution() external view returns (address);
+
 	function timelock() external view returns (address payable);
 
 	function claimOnBehalf(address recipient) external;
