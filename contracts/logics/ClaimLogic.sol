@@ -16,8 +16,6 @@ contract ClaimLogic {
 
 	address public constant WMATIC = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
 
-	address public constant ETHA = 0x59E9261255644c411AfDd00bD89162d09D862e38;
-
 	/**
 	 * @dev get vault distribution factory address
 	 */
@@ -93,10 +91,11 @@ contract ClaimLogic {
 			.stakingRewardsInfoByStakingToken(erc20);
 
 		uint256 _earned = IProtocolDistribution(dist).earned(address(this));
+		address distToken = IProtocolDistribution(dist).rewardsToken();
 
 		IProtocolDistribution(dist).getReward(address(this));
 
-		emit Claim(ETHA, _earned);
+		emit Claim(distToken, _earned);
 	}
 
 	/**
@@ -111,7 +110,11 @@ contract ClaimLogic {
 			address(this)
 		);
 
-		emit Claim(ETHA, _earned);
+		address distToken = IProtocolDistribution(
+			getLendingDistributionAddress(erc20)
+		).rewardsToken();
+
+		emit Claim(distToken, _earned);
 	}
 
 	/**

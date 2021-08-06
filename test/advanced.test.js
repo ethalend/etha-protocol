@@ -185,6 +185,10 @@ contract("Advanced Features", () => {
       }
     );
 
+    expectEvent(tx, "Claim", {
+      erc20: WMATIC,
+    });
+
     console.log("\tGas Used:", tx.receipt.gasUsed);
 
     balance = await aDai.balanceOf(wallet.address);
