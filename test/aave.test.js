@@ -172,7 +172,7 @@ contract("Aave Logic", () => {
     expect(fromWei(balance)).to.be.greaterThan(0);
   });
 
-  it("should not be able to withdraw aUSDC tokens from Aave", async function () {
+  it("should not be able to withdraw aUSDC tokens from wallet", async function () {
     const balance = await aUsdc.balanceOf(wallet.address);
 
     // Trigger Aave Deposit
@@ -180,12 +180,11 @@ contract("Aave Logic", () => {
       .withdraw(amUSDC, balance) // amount handled by stored memory value
       .encodeABI();
 
-    await expectRevert(
+    await expectRevert.unspecified(
       wallet.execute([transfers.address], [data], {
         from: user,
         gas: web3.utils.toHex(5e6),
-      }),
-      "Token withdraw not allowed"
+      })
     );
   });
 

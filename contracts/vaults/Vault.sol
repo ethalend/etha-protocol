@@ -20,6 +20,7 @@ contract Vault is Ownable, Pausable, DividendToken {
 	event StrategyChanged(address newStrat);
 	event DepositLimitUpdated(uint256 newLimit);
 	event NewDistribution(address newDistribution);
+	event NewFeeRecipient(address newFeeRecipient);
 
 	IERC20Detailed public underlying;
 	IERC20 public rewards;
@@ -27,6 +28,7 @@ contract Vault is Ownable, Pausable, DividendToken {
 	Timelock public timelock;
 
 	address public harvester;
+	address public feeRecipient;
 
 	uint256 constant MAX_FEE = 10000;
 	uint256 public performanceFee = 0; // 0% of profit
@@ -52,6 +54,7 @@ contract Vault is Ownable, Pausable, DividendToken {
 		underlying = underlying_;
 		rewards = rewards_;
 		harvester = harvester_;
+		feeRecipient = msg.sender;
 		depositLimit = 20000 * (10**underlying_.decimals()); // 20k initial deposit limit
 		timelock = new Timelock(msg.sender, 2 days);
 		_pause(); // paused until a strategy is connected
@@ -141,6 +144,12 @@ contract Vault is Ownable, Pausable, DividendToken {
 		emit FeeUpdate(fee_);
 	}
 
+	function changeFeeRecipient(address newFeeRecipient) external onlyOwner {
+		feeRecipient = newFeeRecipient;
+
+		emit NewFeeRecipient(newFeeRecipient);
+	}
+
 	// if limit == 0 then there is no deposit limit
 	function setDepositLimit(uint256 limit) external onlyOwner {
 		depositLimit = limit;
@@ -169,7 +178,7 @@ contract Vault is Ownable, Pausable, DividendToken {
 			// Calculate fees on underlying
 			uint256 fee = claimed.mul(performanceFee).div(MAX_FEE);
 			afterFee = claimed.sub(fee);
-			rewards.safeTransfer(owner(), fee);
+			rewards.safeTransfer(feeRecipient, fee);
 		} else {
 			afterFee = claimed;
 		}

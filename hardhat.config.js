@@ -75,6 +75,7 @@ module.exports = {
       forking: {
         url: process.env.NODE_URL,
         blockNumber: 16130000,
+        timeout: 300000,
       },
     },
     fork: {

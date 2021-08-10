@@ -87,6 +87,10 @@ contract("Curve Vault", () => {
     console.log(`\nWallet Address: ${swAddress}`);
   });
 
+  it("should set vault fee", async function () {
+    await curveVault.changePerformanceFee(1000);
+  });
+
   it("should swap MATIC for DAI in quickswap", async function () {
     const data = await _quick.methods
       .swap([MATIC, DAI], toWei(100), 0, 0, 1)
@@ -280,6 +284,8 @@ contract("Curve Vault", () => {
 
     const balance = await wmatic.balanceOf(owner);
     console.log("\tOwner WMATIC Fees Collected", fromWei(balance));
+
+    expect(fromWei(balance)).to.be.greaterThan(0);
   });
 
   it("Should collect dividends from ETHA Vault", async function () {

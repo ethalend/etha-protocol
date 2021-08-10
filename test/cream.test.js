@@ -144,7 +144,7 @@ contract("Cream Logic", () => {
     expect(fromWei(_balance)).to.be.greaterThan(0);
 
     const data = await _cream.methods
-      .redeemUnderlying(DAI, _balance, 0, 0, 1)
+      .redeemUnderlying(DAI, toBN(_balance), 0, 0, 1)
       .encodeABI();
 
     const tx = await wallet.execute([cream.address], [data], {

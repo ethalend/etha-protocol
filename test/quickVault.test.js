@@ -28,7 +28,7 @@ const {
 
 const FEE = 1000;
 
-contract("Quick Vault", ([owner, user, multisig, manager, random]) => {
+contract("Quick Vault", ([]) => {
   let registry,
     wallet,
     vault,
@@ -87,6 +87,10 @@ contract("Quick Vault", ([owner, user, multisig, manager, random]) => {
     wallet = await IWallet.at(swAddress);
 
     console.log(`\nWallet Address: ${swAddress}`);
+  });
+
+  it("should set vault fee", async function () {
+    await quickVault.changePerformanceFee(1000);
   });
 
   it("should swap MATIC for DAI", async function () {
@@ -366,7 +370,7 @@ contract("Quick Vault", ([owner, user, multisig, manager, random]) => {
 
     const strat2 = await IStrat2.at(strat.address);
     const totalYield = await strat2.totalYield();
-    console.log("\tAvailable Matic Profits", fromWei(totalYield));
+    console.log("\tAvailable Quick Profits", fromWei(totalYield));
 
     expect(fromWei(totalYield)).to.be.greaterThan(0);
     expect(fromWei(calcTotalValue)).to.be.greaterThan(0);
