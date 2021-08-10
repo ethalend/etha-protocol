@@ -76,11 +76,15 @@ contract ClaimLogic {
 	/**
 	 * @notice read vaults rewards in ETHA
 	 */
-	function getRewardsVaults(address erc20) external view returns (uint256) {
+	function getRewardsVaults(address erc20, address user)
+		external
+		view
+		returns (uint256)
+	{
 		address dist = IDistributionFactory(getVaultDistributionFactory())
 			.stakingRewardsInfoByStakingToken(erc20);
 
-		return IProtocolDistribution(dist).earned(address(this));
+		return IProtocolDistribution(dist).earned(user);
 	}
 
 	/**

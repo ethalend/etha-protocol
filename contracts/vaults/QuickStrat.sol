@@ -20,27 +20,32 @@ contract QuickStrat is IStrat {
 	IERC20 public constant QUICK =
 		IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
 
-	// USDC-DAI LP Staking Rewards Contract
-	IStakingRewards public staking =
-		IStakingRewards(0xEd8413eCEC87c3d4664975743c02DB3b574012a7);
+	// Quikswap LP Staking Rewards Contract
+	IStakingRewards public staking;
 
-	// USDC-DAI LP
-	IERC20 public underlying =
-		IERC20(0xf04adBF75cDFc5eD26eeA4bbbb991DB002036Bdd);
+	// Quickswap LP
+	IERC20 public underlying;
 
 	Timelock public timelock;
 
 	// ==== MODIFIERS ===== //
 
-	modifier onlyVault {
+	modifier onlyVault() {
 		require(msg.sender == address(vault));
 		_;
 	}
 
 	// ==== INITIALIZATION ===== //
 
-	constructor(IVault vault_) {
+	constructor(
+		IVault vault_,
+		IStakingRewards _staking,
+		IERC20 _underlying
+	) {
 		vault = vault_;
+		staking = _staking;
+		underlying = _underlying;
+
 		timelock = new Timelock(msg.sender, 7 days);
 
 		// Infite Approvals
