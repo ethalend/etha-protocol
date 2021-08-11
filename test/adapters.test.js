@@ -1,19 +1,23 @@
 const {
-  deployments: { fixture },
+  deployments: { fixture, get },
+  ethers,
 } = require("hardhat");
 
 const { WMATIC, fromWei } = require("../deploy/utils");
 
 contract("Adapters", ([]) => {
-  let protocolsData;
+  let protocolsData, vaultAdapter, vault;
 
   before(async function () {
-    await fixture(["Adapters"]);
+    await fixture(["Adapters", "QuickDist"]);
 
     protocolsData = await ethers.getContract("ProtocolsData");
+    vaultAdapter = await ethers.getContract("VaultAdapter");
+
+    ({ address: vault } = await get("QuickVault"));
   });
 
-  it("should show correct protocol data", async function () {
+  it.skip("should show correct protocol data", async function () {
     const data = await protocolsData.getProtocolsData(WMATIC);
 
     console.log("\n\t\t===AAVE===");
@@ -33,5 +37,11 @@ contract("Adapters", ([]) => {
         else console.log("\t", t, fromWei(data.cream[t]));
       }
     });
+  });
+
+  it("should fetch vault info", async function () {
+    const data = await vaultAdapter.getVaultInfo(vault);
+
+    console.log(data);
   });
 });

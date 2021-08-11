@@ -88,7 +88,9 @@ contract VaultAdapter is Ownable {
 		info.strategy = address(vault.strat());
 		info.distribution = vault.distribution();
 		info.totalDeposits = vault.calcTotalValue();
-		info.ethaRewardsRate = IDistribution(info.distribution)
-			.rewardPerToken();
+		IDistribution dist = IDistribution(info.distribution);
+		info.ethaRewardsRate = address(dist) == address(0)
+			? 0
+			: dist.rewardPerToken();
 	}
 }
