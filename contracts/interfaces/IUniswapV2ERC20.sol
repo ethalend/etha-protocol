@@ -58,4 +58,8 @@ interface IUniswapV2ERC20 {
 		bytes32 r,
 		bytes32 s
 	) external;
+
+	function token0() external view returns (address);
+
+	function token1() external view returns (address);
 }

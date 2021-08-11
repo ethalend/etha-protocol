@@ -13,4 +13,6 @@ interface IProtocolDistribution {
 	function balanceOf(address account) external view returns (uint256);
 
 	function rewardsToken() external view returns (address);
+
+	function rewardPerToken() external view returns (uint256);
 }
