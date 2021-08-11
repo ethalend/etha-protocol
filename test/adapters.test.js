@@ -5,6 +5,8 @@ const {
 
 const { WMATIC, fromWei } = require("../deploy/utils");
 
+const lpHolder = "0x9898f0688e71d738f7121334c9c15f8cd5a3fbca";
+
 contract("Adapters", ([]) => {
   let protocolsData, vaultAdapter, vault;
 
@@ -17,7 +19,7 @@ contract("Adapters", ([]) => {
     ({ address: vault } = await get("QuickVault"));
   });
 
-  it.skip("should show correct protocol data", async function () {
+  it("should show correct protocol data", async function () {
     const data = await protocolsData.getProtocolsData(WMATIC);
 
     console.log("\n\t\t===AAVE===");
@@ -41,6 +43,17 @@ contract("Adapters", ([]) => {
 
   it("should fetch vault info", async function () {
     const data = await vaultAdapter.getVaultInfo(vault);
+
+    console.log(data);
+  });
+
+  it("should fetch quick lp data", async function () {
+    // USDC/DAI LP
+
+    const data = await vaultAdapter.getQuickswapBalance(
+      "0xf04adBF75cDFc5eD26eeA4bbbb991DB002036Bdd",
+      lpHolder
+    );
 
     console.log(data);
   });
