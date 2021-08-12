@@ -37,7 +37,30 @@ contract("Adapters", ([]) => {
     });
   });
 
-  it("should fetch vault info", async function () {
+  it("should fetch curve vault info", async function () {
+    const {
+      depositToken,
+      rewardsToken,
+      strategy,
+      distribution,
+      totalDeposits,
+      totalDepositsUSD,
+      ethaRewardsRate,
+    } = await vaultAdapter.getVaultInfo(
+      "0x4e5b645B69e873295511C6cA5B8951c3ff4F74F4",
+      false
+    );
+
+    console.log("depositToken", depositToken);
+    console.log("rewardsToken", rewardsToken);
+    console.log("strategy", strategy);
+    console.log("distribution", distribution);
+    console.log("totalDeposits", String(totalDeposits));
+    console.log("totalDepositsUSD", String(totalDepositsUSD));
+    console.log("ethaRewardsRate", String(ethaRewardsRate));
+  });
+
+  it("should fetch quick vault info", async function () {
     const {
       depositToken,
       rewardsToken,

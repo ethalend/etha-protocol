@@ -6,11 +6,11 @@ import "../interfaces/IVault.sol";
 import "../interfaces/ICurvePool.sol";
 import "../interfaces/IDistribution.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-contract VaultAdapter is Ownable {
+contract VaultAdapter is OwnableUpgradeable {
 	using SafeMath for uint256;
 
 	mapping(address => address) public priceFeeds;
@@ -27,7 +27,10 @@ contract VaultAdapter is Ownable {
 		uint256 ethaRewardsRate;
 	}
 
-	constructor(address[] memory tokens, address[] memory feeds) {
+	function initialize(address[] memory tokens, address[] memory feeds)
+		public
+		initializer
+	{
 		for (uint256 i = 0; i < tokens.length; i++) {
 			priceFeeds[tokens[i]] = feeds[i];
 		}
@@ -38,7 +41,7 @@ contract VaultAdapter is Ownable {
 	}
 
 	function setCurvePool(address lpToken, address pool) external {
-		priceFeeds[lpToken] = pool;
+		curvePools[lpToken] = pool;
 	}
 
 	function formatDecimals(address token, uint256 amount)
