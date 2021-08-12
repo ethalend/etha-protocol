@@ -1,22 +1,18 @@
 const {
-  deployments: { fixture, get },
+  deployments: { fixture },
   ethers,
 } = require("hardhat");
 
 const { WMATIC, fromWei } = require("../deploy/utils");
 
-const lpHolder = "0x9898f0688e71d738f7121334c9c15f8cd5a3fbca";
-
 contract("Adapters", ([]) => {
-  let protocolsData, vaultAdapter, vault;
+  let protocolsData, vaultAdapter;
 
   before(async function () {
-    await fixture(["Adapters", "QuickDist"]);
+    await fixture(["Adapters"]);
 
     protocolsData = await ethers.getContract("ProtocolsData");
     vaultAdapter = await ethers.getContract("VaultAdapter");
-
-    ({ address: vault } = await get("QuickVault"));
   });
 
   it("should show correct protocol data", async function () {
@@ -42,19 +38,25 @@ contract("Adapters", ([]) => {
   });
 
   it("should fetch vault info", async function () {
-    const data = await vaultAdapter.getVaultInfo(vault);
-
-    console.log(data);
-  });
-
-  it("should fetch quick lp data", async function () {
-    // USDC/DAI LP
-
-    const data = await vaultAdapter.getQuickswapBalance(
-      "0xf04adBF75cDFc5eD26eeA4bbbb991DB002036Bdd",
-      lpHolder
+    const {
+      depositToken,
+      rewardsToken,
+      strategy,
+      distribution,
+      totalDeposits,
+      totalDepositsUSD,
+      ethaRewardsRate,
+    } = await vaultAdapter.getVaultInfo(
+      "0xb56AAb9696B95a75A6edD5435bc9dCC4b07403b0",
+      true
     );
 
-    console.log(data);
+    console.log("depositToken", depositToken);
+    console.log("rewardsToken", rewardsToken);
+    console.log("strategy", strategy);
+    console.log("distribution", distribution);
+    console.log("totalDeposits", String(totalDeposits));
+    console.log("totalDepositsUSD", String(totalDepositsUSD));
+    console.log("ethaRewardsRate", String(ethaRewardsRate));
   });
 });

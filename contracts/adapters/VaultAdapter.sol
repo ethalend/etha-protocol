@@ -3,6 +3,7 @@ pragma solidity 0.8.4;
 
 import "../interfaces/IUniswapV2ERC20.sol";
 import "../interfaces/IVault.sol";
+import "../interfaces/ICurvePool.sol";
 import "../interfaces/IDistribution.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -14,12 +15,15 @@ contract VaultAdapter is Ownable {
 
 	mapping(address => address) public priceFeeds;
 
+	mapping(address => address) public curvePools;
+
 	struct VaultInfo {
 		address depositToken;
 		address rewardsToken;
 		address strategy;
 		address distribution;
 		uint256 totalDeposits;
+		uint256 totalDepositsUSD;
 		uint256 ethaRewardsRate;
 	}
 
@@ -31,6 +35,10 @@ contract VaultAdapter is Ownable {
 
 	function setPriceFeed(address token, address feed) external {
 		priceFeeds[token] = feed;
+	}
+
+	function setCurvePool(address lpToken, address pool) external {
+		priceFeeds[lpToken] = pool;
 	}
 
 	function formatDecimals(address token, uint256 amount)
@@ -45,7 +53,7 @@ contract VaultAdapter is Ownable {
 	}
 
 	function getQuickswapBalance(address _pair, uint256 lpBalance)
-		external
+		public
 		view
 		returns (
 			uint256 totalSupply,
@@ -78,7 +86,7 @@ contract VaultAdapter is Ownable {
 		lpValueUSD = lpBalance.mul(totalMarket).div(totalSupply);
 	}
 
-	function getVaultInfo(IVault vault)
+	function getVaultInfo(IVault vault, bool isQuick)
 		external
 		view
 		returns (VaultInfo memory info)
@@ -88,9 +96,19 @@ contract VaultAdapter is Ownable {
 		info.strategy = address(vault.strat());
 		info.distribution = vault.distribution();
 		info.totalDeposits = vault.calcTotalValue();
+
+		if (isQuick) {
+			(, , uint256 usdValue) = getQuickswapBalance(
+				info.depositToken,
+				info.totalDeposits
+			);
+			info.totalDepositsUSD = usdValue;
+		} else
+			info.totalDepositsUSD = ICurvePool(curvePools[info.depositToken])
+				.get_virtual_price();
 		IDistribution dist = IDistribution(info.distribution);
 		info.ethaRewardsRate = address(dist) == address(0)
 			? 0
-			: dist.rewardPerToken();
+			: dist.rewardRate();
 	}
 }

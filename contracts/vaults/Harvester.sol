@@ -29,9 +29,9 @@ contract Harvester is Ownable {
 	}
 
 	/**
-        @notice Harvest vault using uniswap
-        @dev any user can harvest after delay has passed
-     */
+		@notice Harvest vault using uniswap
+		@dev any user can harvest after delay has passed
+	*/
 	function harvestVault(IVault vault) public onlyAfterDelay(vault) {
 		// Amount to Harvest
 		uint256 afterFee = vault.harvest();
@@ -60,6 +60,13 @@ contract Harvester is Ownable {
 		vault.distribute(received);
 
 		emit Harvested(address(vault), msg.sender);
+	}
+
+	/**
+		@dev update delay required to harvest vault
+	*/
+	function setDelay(uint256 _delay) external onlyOwner {
+		delay = _delay;
 	}
 
 	// no tokens should ever be stored on this contract. Any tokens that are sent here by mistake are recoverable by the owner
