@@ -94,7 +94,9 @@ contract Vault is Ownable, Pausable, DividendToken {
 		underlying.safeTransfer(msg.sender, amount);
 
 		if (distribution != address(0)) {
-			IDistribution(distribution).withdraw(msg.sender, amount);
+			if (IDistribution(distribution).balanceOf(msg.sender) >= amount) {
+				IDistribution(distribution).withdraw(msg.sender, amount);
+			}
 		}
 
 		// Claim profits when withdrawing

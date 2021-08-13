@@ -107,8 +107,13 @@ contract VaultAdapter is OwnableUpgradeable {
 			);
 			info.totalDepositsUSD = usdValue;
 		} else
-			info.totalDepositsUSD = ICurvePool(curvePools[info.depositToken])
-				.get_virtual_price();
+			info.totalDepositsUSD = info
+				.totalDeposits
+				.mul(
+					ICurvePool(curvePools[info.depositToken])
+						.get_virtual_price()
+				)
+				.div(1 ether);
 		IDistribution dist = IDistribution(info.distribution);
 		info.ethaRewardsRate = address(dist) == address(0)
 			? 0
