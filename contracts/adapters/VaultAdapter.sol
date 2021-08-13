@@ -78,12 +78,14 @@ contract VaultAdapter is OwnableUpgradeable {
 		(, int256 token1Price, , , ) = AggregatorV3Interface(priceFeeds[token1])
 			.latestRoundData();
 
-		totalMarket = uint256(formatDecimals(token0, _reserve0))
-			.mul(uint256(token0Price).div(10**8))
-			.add(
-				uint256(formatDecimals(token1, _reserve1)).mul(
-					uint256(token1Price).div(10**8)
-				)
+		totalMarket = uint256(
+			formatDecimals(token0, _reserve0).mul(uint256(token0Price)).div(
+				10**8
+			)
+		).add(
+				uint256(formatDecimals(token1, _reserve1))
+					.mul(uint256(token1Price))
+					.div(10**8)
 			);
 
 		lpValueUSD = lpBalance.mul(totalMarket).div(totalSupply);
