@@ -74,7 +74,7 @@ module.exports = {
     hardhat: {
       forking: {
         url: process.env.NODE_URL,
-        blockNumber: 16130000,
+        blockNumber: 18053716,
         timeout: 300000,
       },
     },

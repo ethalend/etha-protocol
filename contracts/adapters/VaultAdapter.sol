@@ -5,6 +5,7 @@ import "../interfaces/IUniswapV2ERC20.sol";
 import "../interfaces/IVault.sol";
 import "../interfaces/ICurvePool.sol";
 import "../interfaces/IDistribution.sol";
+import "../interfaces/IStrat2.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -22,6 +23,7 @@ contract VaultAdapter is OwnableUpgradeable {
 		address rewardsToken;
 		address strategy;
 		address distribution;
+		address stakingContract;
 		uint256 totalDeposits;
 		uint256 totalDepositsUSD;
 		uint256 ethaRewardsRate;
@@ -101,6 +103,10 @@ contract VaultAdapter is OwnableUpgradeable {
 		info.strategy = address(vault.strat());
 		info.distribution = vault.distribution();
 		info.totalDeposits = vault.calcTotalValue();
+		IDistribution dist = IDistribution(info.distribution);
+		info.ethaRewardsRate = address(dist) == address(0)
+			? 0
+			: dist.rewardRate();
 
 		if (isQuick) {
 			(, , uint256 usdValue) = getQuickswapBalance(
@@ -108,7 +114,8 @@ contract VaultAdapter is OwnableUpgradeable {
 				info.totalDeposits
 			);
 			info.totalDepositsUSD = usdValue;
-		} else
+			info.stakingContract = IStrat2(info.strategy).staking();
+		} else {
 			info.totalDepositsUSD = info
 				.totalDeposits
 				.mul(
@@ -116,9 +123,8 @@ contract VaultAdapter is OwnableUpgradeable {
 						.get_virtual_price()
 				)
 				.div(1 ether);
-		IDistribution dist = IDistribution(info.distribution);
-		info.ethaRewardsRate = address(dist) == address(0)
-			? 0
-			: dist.rewardRate();
+
+			info.stakingContract = IStrat2(info.strategy).gauge();
+		}
 	}
 }

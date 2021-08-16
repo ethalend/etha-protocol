@@ -37,7 +37,7 @@ contract("Adapters", ([]) => {
     });
   });
 
-  it("should fetch curve vault info", async function () {
+  it.only("should fetch curve vault info", async function () {
     const {
       depositToken,
       rewardsToken,
@@ -66,6 +66,7 @@ contract("Adapters", ([]) => {
       rewardsToken,
       strategy,
       distribution,
+      stakingContract,
       totalDeposits,
       totalDepositsUSD,
       ethaRewardsRate,
@@ -78,6 +79,7 @@ contract("Adapters", ([]) => {
     console.log("rewardsToken", rewardsToken);
     console.log("strategy", strategy);
     console.log("distribution", distribution);
+    console.log("stakingContract", stakingContract);
     console.log("totalDeposits", String(totalDeposits));
     console.log("totalDepositsUSD", String(totalDepositsUSD));
     console.log("ethaRewardsRate", String(ethaRewardsRate));

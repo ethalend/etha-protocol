@@ -5,4 +5,8 @@ interface IStrat2 {
 	function totalYield() external view returns (uint256);
 
 	function totalYield2() external view returns (uint256);
+
+	function staking() external view returns (address);
+
+	function gauge() external view returns (address);
 }
