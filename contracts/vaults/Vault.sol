@@ -8,6 +8,7 @@ import "../utils/Timelock.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "../interfaces/IDistribution.sol";
+import "hardhat/console.sol";
 
 contract Vault is Ownable, Pausable, DividendToken {
 	using SafeMath for uint256;
@@ -91,6 +92,8 @@ contract Vault is Ownable, Pausable, DividendToken {
 		_burn(msg.sender, amount);
 
 		strat.divest(amount);
+
+		console.log("divested", underlying.balanceOf(address(this)));
 		underlying.safeTransfer(msg.sender, amount);
 
 		if (distribution != address(0)) {

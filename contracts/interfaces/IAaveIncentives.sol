@@ -9,6 +9,15 @@ interface IAaveIncentives {
 		view
 		returns (uint256);
 
+	function assets(address aToken)
+		external
+		view
+		returns (
+			uint128 emissionPerSecond,
+			uint128 lastUpdateTimestamp,
+			uint256 index
+		);
+
 	function getUserUnclaimedRewards(address _user)
 		external
 		view

@@ -83,16 +83,25 @@ contract VaultResolver is DSMath {
 
 		require(vault.balanceOf(address(this)) >= realAmt, "!BALANCE");
 
-		address distToken = IDistribution(vault.distribution()).rewardsToken();
-		uint256 initialBal = IERC20(distToken).balanceOf(address(this));
+		address dist = vault.distribution();
+		address distToken;
+		uint256 initialBal;
+
+		if (dist != address(0)) {
+			distToken = IDistribution(dist).rewardsToken();
+			initialBal = IERC20(distToken).balanceOf(address(this));
+		}
 
 		IERC20(address(vault)).universalApprove(address(vault), realAmt);
 		vault.withdraw(realAmt);
 		emit VaultWithdraw(address(vault.underlying()), realAmt);
 
-		uint256 _claimed = IERC20(distToken).balanceOf(address(this)).sub(
-			initialBal
-		);
+		uint256 _claimed;
+		if (dist != address(0)) {
+			_claimed = IERC20(distToken).balanceOf(address(this)).sub(
+				initialBal
+			);
+		}
 
 		if (_claimed > 0) {
 			emit Claim(distToken, _claimed);

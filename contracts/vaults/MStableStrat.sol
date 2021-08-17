@@ -50,23 +50,24 @@ contract MStableStrat is IStrat {
 
 	// ==== INITIALIZATION ===== //
 
-	constructor(
-		IVault vault_,
-		ISavingsContractV2 _savings,
-		IERC20 _underlying
-	) {
+	constructor(IVault vault_, IERC20 _underlying) {
 		vault = vault_;
-		savings = _savings;
 		underlying = _underlying;
 
 		timelock = new Timelock(msg.sender, 7 days);
 
-		// Infite Approvals
-		underlying.safeApprove(address(savings), type(uint256).max);
+		// Approve vault for withdrawals and claims
 		underlying.safeApprove(address(vault), type(uint256).max);
 		WMATIC.safeApprove(address(vault), type(uint256).max);
 		MTA.safeApprove(address(vault), type(uint256).max);
 		MTA.safeApprove(address(ROUTER), type(uint256).max);
+
+		// Approve for investing musd and imusd
+		underlying.safeApprove(address(savings), type(uint256).max);
+		IERC20(address(savings)).safeApprove(
+			address(boostedVault),
+			type(uint256).max
+		);
 	}
 
 	// ==== GETTERS ===== //
@@ -103,14 +104,17 @@ contract MStableStrat is IStrat {
 	/**
 		@notice Invest LP Tokens into mStable staking contract
 		@dev can only be called by the vault contract
+		@dev credits = balance
 	*/
 	function invest() external override onlyVault {
 		uint256 balance = underlying.balanceOf(address(this));
 		require(balance > 0);
 
+		console.log("underlying bal", balance);
+
 		uint256 credits = savings.depositSavings(balance, address(this));
-		console.log("savings bal", savings.balanceOf(address(this)));
 		console.log("credits bal", credits);
+
 		boostedVault.stake(address(this), credits);
 		console.log("vault bal", boostedVault.balanceOf(address(this)));
 	}
@@ -121,11 +125,15 @@ contract MStableStrat is IStrat {
 		@param amount amount of LP Tokens to withdraw
 	*/
 	function divest(uint256 amount) public override onlyVault {
-		boostedVault.withdraw(amount);
+		uint256 credits = savings.underlyingToCredits(amount);
+		console.log("credits bal", credits);
+		boostedVault.withdraw(credits);
 
 		uint256 received = savings.balanceOf(address(this));
+		console.log("received bal", received);
 
 		uint256 massetReturned = savings.redeemCredits(received);
+		console.log("masset bal", massetReturned);
 
 		underlying.safeTransfer(address(vault), massetReturned);
 	}
