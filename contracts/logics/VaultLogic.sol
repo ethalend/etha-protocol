@@ -46,6 +46,22 @@ contract VaultResolver is DSMath {
 	event VaultClaim(address indexed erc20, uint256 tokenAmt);
 	event Claim(address indexed erc20, uint256 tokenAmt);
 
+	function _payFees(address erc20, uint256 amt) internal {
+		address registry = IWallet(address(this)).registry();
+		uint256 fee = IRegistry(registry).getFee();
+
+		if (fee > 0) {
+			address feeRecipient = IRegistry(registry).feeRecipient();
+
+			require(feeRecipient != address(0), "ZERO ADDRESS");
+
+			IERC20(erc20).universalTransfer(
+				feeRecipient,
+				div(mul(amt, fee), 100000)
+			);
+		}
+	}
+
 	/**
 	 * @dev Deposit tokens to ETHA Vault
 	 * @param vault address of vault
@@ -86,9 +102,12 @@ contract VaultResolver is DSMath {
 		address distToken = IDistribution(vault.distribution()).rewardsToken();
 		uint256 initialBal = IERC20(distToken).balanceOf(address(this));
 
-		IERC20(address(vault)).universalApprove(address(vault), realAmt);
+		// IERC20(address(vault)).universalApprove(address(vault), realAmt);
 		vault.withdraw(realAmt);
-		emit VaultWithdraw(address(vault.underlying()), realAmt);
+		address underlying = address(vault.underlying());
+		emit VaultWithdraw(underlying, realAmt);
+
+		_payFees(underlying, realAmt);
 
 		uint256 _claimed = IERC20(distToken).balanceOf(address(this)).sub(
 			initialBal

@@ -4,13 +4,13 @@ pragma solidity 0.8.4;
 import "../interfaces/IMAsset.sol";
 import {ISavingsContractV2} from "../interfaces/IMStable.sol";
 import "./Helpers.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../libs/UniversalERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "hardhat/console.sol";
 
 contract MStableResolver is Helpers {
 	using SafeMath for uint256;
-	using SafeERC20 for IERC20;
+	using UniversalERC20 for IERC20;
 
 	IMasset public constant musd =
 		IMasset(0xE840B73E5287865EEc17d250bFb1536704B43B21);
@@ -55,8 +55,7 @@ contract MStableResolver is Helpers {
 		require(address(fromToken) != address(destToken), "SAME ASSETS");
 
 		// Approve mUSD
-		IERC20(fromToken).safeApprove(address(musd), 0);
-		IERC20(fromToken).safeApprove(address(musd), realAmt);
+		IERC20(fromToken).universalApprove(address(musd), realAmt);
 
 		uint256 received = musd.swap(
 			address(fromToken),
@@ -92,8 +91,7 @@ contract MStableResolver is Helpers {
 		require(realAmt > 0, "INVALID AMOUNT");
 
 		// Approve mUSD
-		IERC20(token).safeApprove(address(musd), 0);
-		IERC20(token).safeApprove(address(musd), realAmt);
+		IERC20(token).universalApprove(address(musd), realAmt);
 
 		// Mint mUSD
 		uint256 massetsMinted = musd.mint(
@@ -159,8 +157,7 @@ contract MStableResolver is Helpers {
 		require(realAmt > 0, "INVALID AMOUNT");
 
 		// Approve imUSD
-		IERC20(address(musd)).safeApprove(address(savings), 0);
-		IERC20(address(musd)).safeApprove(address(savings), realAmt);
+		IERC20(address(musd)).universalApprove(address(savings), realAmt);
 
 		// Save mUSD, receive imUSD credits
 		uint256 credits = savings.depositSavings(realAmt, address(this));

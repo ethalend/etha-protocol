@@ -44,6 +44,8 @@ contract DSMath is Helpers {
 }
 
 contract AaveHelpers is DSMath {
+	using UniversalERC20 for IERC20;
+
 	/**
 	 * @dev get ethereum address
 	 */
@@ -97,6 +99,22 @@ contract AaveHelpers is DSMath {
 			if (toWithdraw > 0) {
 				IProtocolDistribution(distribution).withdraw(toWithdraw);
 			}
+		}
+	}
+
+	function _payFees(address erc20, uint256 amt) internal {
+		address registry = IWallet(address(this)).registry();
+		uint256 fee = IRegistry(registry).getFee();
+
+		if (fee > 0) {
+			address feeRecipient = IRegistry(registry).feeRecipient();
+
+			require(feeRecipient != address(0), "ZERO ADDRESS");
+
+			IERC20(erc20).universalTransfer(
+				feeRecipient,
+				div(mul(amt, fee), 100000)
+			);
 		}
 	}
 }
@@ -193,20 +211,7 @@ contract AaveResolver is AaveHelpers {
 		ILendingPool _lendingPool = ILendingPool(getLendingPoolAddress());
 		_lendingPool.withdraw(erc20, realAmt, address(this));
 
-		address registry = IWallet(address(this)).registry();
-		uint256 fee = IRegistry(registry).getFee();
-
-		if (fee > 0) {
-			address feeRecipient = IRegistry(registry).feeRecipient();
-
-			require(feeRecipient != address(0), "ZERO ADDRESS");
-
-			IERC20(erc20).universalTransfer(
-				feeRecipient,
-				div(mul(realAmt, fee), 100000)
-			);
-		}
-
+		_payFees(erc20, realAmt);
 		_unstake(erc20, realAmt);
 
 		// set amount of tokens received
