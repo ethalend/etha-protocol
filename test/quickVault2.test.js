@@ -26,26 +26,10 @@ const {
   toBN,
 } = require("../deploy/utils");
 
-const FEE = 1000; // 10% performance
+const WITHDRAWAL_FEE = 10; // 0.1%
+const PERFORMANCE_FEE = 1700; // 17% performance
 
 contract("Quick Vault 2", ([]) => {
-  let registry,
-    wallet,
-    vault,
-    _vault,
-    quick,
-    _quick,
-    curve,
-    _curve,
-    usdt,
-    usdc,
-    wbtc,
-    quickToken,
-    quickLP,
-    quickVault,
-    strat,
-    harvester;
-
   before(async function () {
     [_owner, _user] = await ethers.getSigners();
     owner = _owner.address;
@@ -81,6 +65,7 @@ contract("Quick Vault 2", ([]) => {
     quickVault = await ethers.getContract("QuickVault2");
     strat = await ethers.getContract("QuickStrat2");
     harvester = await ethers.getContract("Harvester");
+    feeManager = await ethers.getContract("FeeManager");
 
     await registry.connect(_user).deployWallet();
     const swAddress = await registry.wallets(user);
@@ -89,8 +74,9 @@ contract("Quick Vault 2", ([]) => {
     console.log(`\nWallet Address: ${swAddress}`);
   });
 
-  it("should set vault fee", async function () {
-    await quickVault.changePerformanceFee(FEE);
+  it("should set vault fees", async function () {
+    await feeManager.setVaultFee(quickVault.address, WITHDRAWAL_FEE);
+    await quickVault.changePerformanceFee(PERFORMANCE_FEE);
   });
 
   it("should swap MATIC for USDT", async function () {
@@ -171,8 +157,8 @@ contract("Quick Vault 2", ([]) => {
   });
 
   it("should initialize distribution contracts", async function () {
-    await time.advanceBlock();
-    await time.increase(time.duration.days(2));
+    await ethers.provider.send("evm_increaseTime", [10]); // add 10 seconds
+    await ethers.provider.send("evm_mine"); // mine the next block
 
     await etha.mint(factory.address, toWei(process.env.REWARD_AMOUNT_VAULTS));
 
@@ -362,13 +348,13 @@ contract("Quick Vault 2", ([]) => {
   });
 
   it("Should have profits in ETHA vault", async function () {
-    await time.advanceBlock();
-    await time.increase(time.duration.days(7));
+    await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 7]); // add 7 days
+    await ethers.provider.send("evm_mine"); // mine the nex
 
     const calcTotalValue = await strat.calcTotalValue();
 
     const strat2 = await IStrat2.at(strat.address);
-    const totalYield = await strat2.totalYield();
+    totalYield = await strat2.totalYield();
     console.log("\tAvailable Quick Profits", fromWei(totalYield));
 
     expect(fromWei(totalYield)).to.be.greaterThan(0);
@@ -380,6 +366,14 @@ contract("Quick Vault 2", ([]) => {
 
     const balance = await quickToken.balanceOf(owner);
     console.log("\tOwner QUICK Fees Collected", fromWei(balance));
+    expect(fromWei(totalYield) * (PERFORMANCE_FEE / 10000)).to.be.at.least(
+      fromWei(balance)
+    );
+
+    // From withdraw fees
+    const balance2 = await quickLP.balanceOf(owner);
+    console.log("\tLP collected:", fromWei(balance2));
+    expect(fromWei(balance2)).to.be.greaterThan(0);
   });
 
   it("Should collect dividends from ETHA Vault", async function () {
@@ -406,7 +400,7 @@ contract("Quick Vault 2", ([]) => {
 
     const balance = await wmatic.balanceOf(wallet.address);
     console.log("\tUser claimed WMATIC rewards", fromWei(balance));
-    expect(fromWei(balance)).to.be.greaterThan(0);
+    expect(fromWei(balance)).to.be.equal(fromWei(dividends));
 
     const balanceETHA = await etha.balanceOf(wallet.address);
     console.log("\tUser claimed ETHA rewards", fromWei(balanceETHA));

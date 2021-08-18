@@ -108,17 +108,16 @@ contract CreamHelpers is DSMath {
 	}
 
 	function _payFees(address erc20, uint256 amt) internal {
-		address registry = IWallet(address(this)).registry();
-		uint256 fee = IRegistry(registry).getFee();
+		(uint256 fee, uint256 maxFee, address feeRecipient) = getLendingFee(
+			erc20
+		);
 
 		if (fee > 0) {
-			address feeRecipient = IRegistry(registry).feeRecipient();
-
 			require(feeRecipient != address(0), "ZERO ADDRESS");
 
 			IERC20(erc20).universalTransfer(
 				feeRecipient,
-				div(mul(amt, fee), 100000)
+				div(mul(amt, fee), maxFee)
 			);
 		}
 	}

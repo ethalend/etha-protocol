@@ -29,6 +29,7 @@ contract("Aave Logic", () => {
 
   before(async function () {
     [_owner, _user] = await ethers.getSigners();
+    owner = _owner.address;
     user = _user.address;
 
     await fixture(["Adapters", "EthaRegistry"]);
@@ -58,6 +59,7 @@ contract("Aave Logic", () => {
     registry = await ethers.getContract("EthaRegistry");
     investments = await ethers.getContract("Investments");
     memory = await ethers.getContract("Memory");
+    feeManager = await ethers.getContract("FeeManager");
 
     await registry.connect(_user).deployWallet({ from: user });
     const swAddress = await registry.wallets(user);
@@ -189,10 +191,11 @@ contract("Aave Logic", () => {
   });
 
   it("should redeem DAI from Aave", async function () {
-    const _balance = await aDai.balanceOf(wallet.address);
+    daiToRedeem = await aDai.balanceOf(wallet.address);
+    console.log("\tDAI to Redeem:", fromWei(daiToRedeem));
 
     const data = await _aave.methods
-      .redeemAToken(DAI, _balance, 0, 0, 1)
+      .redeemAToken(DAI, daiToRedeem, 0, 0, 1)
       .encodeABI();
 
     const tx = await wallet.execute([aave.address], [data], {
@@ -202,13 +205,24 @@ contract("Aave Logic", () => {
 
     expectEvent(tx, "LogRedeem", {
       erc20: DAI,
-      tokenAmt: _balance,
+      tokenAmt: daiToRedeem,
     });
 
     console.log("\tGas Used:", tx.receipt.gasUsed);
 
     const balance = await aDai.balanceOf(wallet.address);
     expect(fromWei(balance)).to.be.lessThan(0.001); // there is some dust for the interest earned
+  });
+
+  it("should collect fees when redeeming", async function () {
+    const fee = await feeManager.getLendingFee(DAI);
+    const max = await feeManager.MAX_FEE();
+
+    const balance = await dai.balanceOf(owner);
+    console.log("\tDAI received:", fromWei(balance));
+    expect((fromWei(daiToRedeem) * Number(fee)) / Number(max)).to.be.at.least(
+      fromWei(balance)
+    );
   });
 
   it("should borrow ETH from Aave", async function () {

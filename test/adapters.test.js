@@ -24,7 +24,7 @@ contract("Adapters", ([]) => {
     await fixture(["Adapters"]);
 
     protocolsData = await ethers.getContract("ProtocolsData");
-    vaultAdapter = await ethers.getContract("VaultAdapter");
+    generalAdapter = await ethers.getContract("GeneralAdapter");
   });
 
   it("should show correct protocol data", async function () {
@@ -58,9 +58,9 @@ contract("Adapters", ([]) => {
       totalDeposits,
       totalDepositsUSD,
       ethaRewardsRate,
-    } = await vaultAdapter.getVaultInfo(
+    } = await generalAdapter.getVaultInfo(
       "0x4e5b645B69e873295511C6cA5B8951c3ff4F74F4",
-      false
+      0
     );
 
     console.log("depositToken", depositToken);
@@ -82,9 +82,9 @@ contract("Adapters", ([]) => {
       totalDeposits,
       totalDepositsUSD,
       ethaRewardsRate,
-    } = await vaultAdapter.getVaultInfo(
+    } = await generalAdapter.getVaultInfo(
       "0xb56AAb9696B95a75A6edD5435bc9dCC4b07403b0",
-      true
+      1
     );
 
     console.log("depositToken", depositToken);
@@ -98,7 +98,7 @@ contract("Adapters", ([]) => {
   });
 
   it("should get DAI and USDC Matic incentives", async function () {
-    const rewards = await vaultAdapter.getAaveRewards([
+    const rewards = await generalAdapter.getAaveRewards([
       WMATIC,
       DAI,
       USDC,

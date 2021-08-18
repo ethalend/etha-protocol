@@ -9,15 +9,26 @@ import "../interfaces/IStrat2.sol";
 import "../interfaces/IAaveIncentives.sol";
 import "../interfaces/IAToken.sol";
 import "../interfaces/IMemory.sol";
+import "../interfaces/IFeeManager.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-import "hardhat/console.sol";
-
-contract VaultAdapter is OwnableUpgradeable {
+contract GeneralAdapter is OwnableUpgradeable {
 	using SafeMath for uint256;
+
+	enum VaultType {
+		CURVE,
+		QUICK,
+		MSTABLE
+	}
+
+	address public memoryAddress;
+
+	address public incentivesAddress;
+
+	address public feeManager;
 
 	mapping(address => address) public priceFeeds;
 
@@ -32,31 +43,47 @@ contract VaultAdapter is OwnableUpgradeable {
 		uint256 totalDeposits;
 		uint256 totalDepositsUSD;
 		uint256 ethaRewardsRate;
+		uint256 performanceFee;
+		uint256 withdrawalFee;
 	}
 
-	function initialize(address[] memory tokens, address[] memory feeds)
-		public
-		initializer
-	{
+	function initialize(
+		address[] memory tokens,
+		address[] memory feeds,
+		address _memoryAddress,
+		address _incentivesAddress
+	) public initializer {
+		__Ownable_init();
+
+		memoryAddress = _memoryAddress;
+		incentivesAddress = _incentivesAddress;
+
 		for (uint256 i = 0; i < tokens.length; i++) {
 			priceFeeds[tokens[i]] = feeds[i];
 		}
 	}
 
-	function getAaveIncentivesAddress() public pure returns (address) {
-		return 0x357D51124f59836DeD84c8a1730D72B749d8BC23;
-	}
-
-	function getMemoryAddress() public pure returns (address) {
-		return 0x7f3584b047e3c23fC7fF1Fb2aC55130ac2162e20;
-	}
-
-	function setPriceFeed(address token, address feed) external {
+	function setPriceFeed(address token, address feed) external onlyOwner {
 		priceFeeds[token] = feed;
 	}
 
-	function setCurvePool(address lpToken, address pool) external {
+	function setCurvePool(address lpToken, address pool) external onlyOwner {
 		curvePools[lpToken] = pool;
+	}
+
+	function setMemoryAddress(address _memoryAddress) external onlyOwner {
+		memoryAddress = _memoryAddress;
+	}
+
+	function setIncentivesAddress(address _incentivesAddress)
+		external
+		onlyOwner
+	{
+		incentivesAddress = _incentivesAddress;
+	}
+
+	function setFeeManagerAddress(address _feeManager) external onlyOwner {
+		feeManager = _feeManager;
 	}
 
 	function formatDecimals(address token, uint256 amount)
@@ -106,7 +133,7 @@ contract VaultAdapter is OwnableUpgradeable {
 		lpValueUSD = lpBalance.mul(totalMarket).div(totalSupply);
 	}
 
-	function getVaultInfo(IVault vault, bool isQuick)
+	function getVaultInfo(IVault vault, VaultType vaultType)
 		external
 		view
 		returns (VaultInfo memory info)
@@ -116,19 +143,16 @@ contract VaultAdapter is OwnableUpgradeable {
 		info.strategy = address(vault.strat());
 		info.distribution = vault.distribution();
 		info.totalDeposits = vault.calcTotalValue();
+		info.performanceFee = vault.performanceFee();
+		info.withdrawalFee = IFeeManager(feeManager).getVaultFee(
+			address(vault)
+		);
 		IDistribution dist = IDistribution(info.distribution);
 		info.ethaRewardsRate = address(dist) == address(0)
 			? 0
 			: dist.rewardRate();
 
-		if (isQuick) {
-			(, , uint256 usdValue) = getQuickswapBalance(
-				info.depositToken,
-				info.totalDeposits
-			);
-			info.totalDepositsUSD = usdValue;
-			info.stakingContract = IStrat2(info.strategy).staking();
-		} else {
+		if (vaultType == VaultType.CURVE) {
 			info.totalDepositsUSD = info
 				.totalDeposits
 				.mul(
@@ -139,6 +163,15 @@ contract VaultAdapter is OwnableUpgradeable {
 
 			info.stakingContract = IStrat2(info.strategy).gauge();
 		}
+
+		if (vaultType == VaultType.QUICK) {
+			(, , uint256 usdValue) = getQuickswapBalance(
+				info.depositToken,
+				info.totalDeposits
+			);
+			info.totalDepositsUSD = usdValue;
+			info.stakingContract = IStrat2(info.strategy).staking();
+		}
 	}
 
 	function getAaveRewards(address[] memory _tokens)
@@ -146,15 +179,13 @@ contract VaultAdapter is OwnableUpgradeable {
 		view
 		returns (uint256[] memory)
 	{
-		IAaveIncentives incentives = IAaveIncentives(
-			getAaveIncentivesAddress()
-		);
+		IAaveIncentives incentives = IAaveIncentives(incentivesAddress);
 
 		uint256[] memory _rewards = new uint256[](_tokens.length);
 
 		for (uint256 i = 0; i < _tokens.length; i++) {
 			IAToken aToken = IAToken(
-				IMemory(getMemoryAddress()).getAToken(_tokens[i])
+				IMemory(memoryAddress).getAToken(_tokens[i])
 			);
 
 			uint256 totalSupply = formatDecimals(
