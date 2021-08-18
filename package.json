@@ -6,10 +6,10 @@
   "scripts": {
     "compile": "hardhat compile",
     "chain": "hardhat node --no-deploy --show-accounts",
-    "m:deploy": "sh -c 'hardhat deploy --network mainnet --tags ${0}'",
-    "m:checkLogic": "sh -c 'hardhat --network mainnet checkLogic --logic ${0}'",
-    "m:verify": "hardhat --network mainnet etherscan-verify --sleep",
-    "test": "hardhat test --network fork",
+    "m:deploy": "sh -c 'hardhat deploy --network polygon --tags ${0}'",
+    "m:checkLogic": "sh -c 'hardhat --network polygon checkLogic --logic ${0}'",
+    "m:verify": "hardhat --network polygon etherscan-verify --sleep",
+    "test": "hardhat test --network hardhat",
     "t:tag": "sh -c 'hardhat test test/${0}.test.js --network hardhat'",
     "prettier": "prettier --write 'contracts/**/*.sol'"
   },

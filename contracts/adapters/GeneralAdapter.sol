@@ -51,12 +51,14 @@ contract GeneralAdapter is OwnableUpgradeable {
 		address[] memory tokens,
 		address[] memory feeds,
 		address _memoryAddress,
-		address _incentivesAddress
+		address _incentivesAddress,
+		address _feeManager
 	) public initializer {
 		__Ownable_init();
 
 		memoryAddress = _memoryAddress;
 		incentivesAddress = _incentivesAddress;
+		feeManager = _feeManager;
 
 		for (uint256 i = 0; i < tokens.length; i++) {
 			priceFeeds[tokens[i]] = feeds[i];
