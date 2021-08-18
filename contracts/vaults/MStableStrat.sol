@@ -62,8 +62,7 @@ contract MStableStrat is IStrat {
 		MTA.safeApprove(address(vault), type(uint256).max);
 		MTA.safeApprove(address(ROUTER), type(uint256).max);
 
-		// Approve for investing musd and imusd
-		underlying.safeApprove(address(savings), type(uint256).max);
+		// Approve for investing imUSD to vault
 		IERC20(address(savings)).safeApprove(
 			address(boostedVault),
 			type(uint256).max
@@ -73,11 +72,10 @@ contract MStableStrat is IStrat {
 	// ==== GETTERS ===== //
 
 	/**
-		@dev total value of mUSD tokens staked on Mstable's contracts
+		@dev total amount of imUSD tokens staked on mstable's vault
 	*/
 	function calcTotalValue() external view override returns (uint256) {
-		uint256 credits = boostedVault.balanceOf(address(this));
-		return savings.creditsToUnderlying(credits);
+		return boostedVault.balanceOf(address(this));
 	}
 
 	/**
@@ -88,15 +86,17 @@ contract MStableStrat is IStrat {
 			address(this)
 		);
 
-		address[] memory path = new address[](2);
-		path[0] = address(MTA);
-		path[1] = address(WMATIC);
+		uint256 mtaToMatic;
 
-		uint256 toReceive = ROUTER.getAmountsOut(mtaEarned, path)[
-			path.length - 1
-		];
+		if (mtaEarned > 0) {
+			address[] memory path = new address[](2);
+			path[0] = address(MTA);
+			path[1] = address(WMATIC);
 
-		return maticEarned.add(toReceive);
+			mtaToMatic = ROUTER.getAmountsOut(mtaEarned, path)[path.length - 1];
+		}
+
+		return maticEarned.add(mtaToMatic);
 	}
 
 	// ==== MAIN FUNCTIONS ===== //
@@ -110,13 +110,7 @@ contract MStableStrat is IStrat {
 		uint256 balance = underlying.balanceOf(address(this));
 		require(balance > 0);
 
-		console.log("underlying bal", balance);
-
-		uint256 credits = savings.depositSavings(balance, address(this));
-		console.log("credits bal", credits);
-
-		boostedVault.stake(address(this), credits);
-		console.log("vault bal", boostedVault.balanceOf(address(this)));
+		boostedVault.stake(address(this), balance);
 	}
 
 	/**
@@ -125,17 +119,11 @@ contract MStableStrat is IStrat {
 		@param amount amount of LP Tokens to withdraw
 	*/
 	function divest(uint256 amount) public override onlyVault {
-		uint256 credits = savings.underlyingToCredits(amount);
-		console.log("credits bal", credits);
-		boostedVault.withdraw(credits);
+		boostedVault.withdraw(amount);
 
 		uint256 received = savings.balanceOf(address(this));
-		console.log("received bal", received);
 
-		uint256 massetReturned = savings.redeemCredits(received);
-		console.log("masset bal", massetReturned);
-
-		underlying.safeTransfer(address(vault), massetReturned);
+		underlying.safeTransfer(address(vault), received);
 	}
 
 	/**

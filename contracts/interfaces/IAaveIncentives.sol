@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 interface IAaveIncentives {
 	function REWARD_TOKEN() external view returns (address);
 
-	function getRewardsBalance(address[] calldata assets, address user)
+	function getRewardsBalance(address[] calldata _assets, address user)
 		external
 		view
 		returns (uint256);
@@ -24,7 +24,7 @@ interface IAaveIncentives {
 		returns (uint256);
 
 	function claimRewards(
-		address[] calldata assets,
+		address[] calldata _assets,
 		uint256 amount,
 		address to
 	) external returns (uint256);

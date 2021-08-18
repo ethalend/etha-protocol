@@ -92,8 +92,6 @@ contract Vault is Ownable, Pausable, DividendToken {
 		_burn(msg.sender, amount);
 
 		strat.divest(amount);
-
-		console.log("divested", underlying.balanceOf(address(this)));
 		underlying.safeTransfer(msg.sender, amount);
 
 		if (distribution != address(0)) {
