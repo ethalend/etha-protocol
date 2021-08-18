@@ -82,7 +82,7 @@ contract("mStable Vault", () => {
   });
 
   it("should initialize distribution contracts", async function () {
-    await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 2]); // add 2 days
+    await ethers.provider.send("evm_increaseTime", [10]); // add 10 seconds
     await ethers.provider.send("evm_mine"); // mine the nex
 
     await etha.mint(factory.address, toWei(process.env.REWARD_AMOUNT_VAULTS));
@@ -268,12 +268,12 @@ contract("mStable Vault", () => {
     console.log("\tGas Used:", tx.receipt.gasUsed);
 
     const balance = await link.balanceOf(wallet.address);
-    console.log("\tUser claimed ETHA rewards", fromWei(balance));
-    expect(fromWei(balanceETHA)).to.be.greaterThan(0);
+    console.log("\tUser claimed LINK rewards", fromWei(balance));
+    expect(fromWei(balance)).to.be.greaterThan(0);
 
-    // const balanceETHA = await etha.balanceOf(wallet.address);
-    // console.log("\tUser claimed ETHA rewards", fromWei(balanceETHA));
-    // expect(fromWei(balanceETHA)).to.be.greaterThan(0);
+    const balanceETHA = await etha.balanceOf(wallet.address);
+    console.log("\tUser claimed ETHA rewards", fromWei(balanceETHA));
+    expect(fromWei(balanceETHA)).to.be.greaterThan(0);
   });
 
   it("should redeem imUSD from ETHA mstable vault", async function () {
