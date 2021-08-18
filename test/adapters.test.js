@@ -3,12 +3,24 @@ const {
   ethers,
 } = require("hardhat");
 
-const { WMATIC, fromWei } = require("../deploy/utils");
+const { WMATIC, fromWei, DAI, USDC, USDT } = require("../deploy/utils");
 
 contract("Adapters", ([]) => {
   let protocolsData, vaultAdapter;
 
   before(async function () {
+    await network.provider.request({
+      method: "hardhat_reset",
+      params: [
+        {
+          forking: {
+            jsonRpcUrl: process.env.NODE_URL,
+            blockNumber: 18128690,
+          },
+        },
+      ],
+    });
+
     await fixture(["Adapters"]);
 
     protocolsData = await ethers.getContract("ProtocolsData");
@@ -37,7 +49,7 @@ contract("Adapters", ([]) => {
     });
   });
 
-  it.only("should fetch curve vault info", async function () {
+  it("should fetch curve vault info", async function () {
     const {
       depositToken,
       rewardsToken,
@@ -83,5 +95,18 @@ contract("Adapters", ([]) => {
     console.log("totalDeposits", String(totalDeposits));
     console.log("totalDepositsUSD", String(totalDepositsUSD));
     console.log("ethaRewardsRate", String(ethaRewardsRate));
+  });
+
+  it("should get DAI and USDC Matic incentives", async function () {
+    const rewards = await vaultAdapter.getAaveRewards([
+      WMATIC,
+      DAI,
+      USDC,
+      USDT,
+    ]);
+    console.log("rewards MATIC", fromWei(rewards[0]));
+    console.log("rewards DAI", fromWei(rewards[1]));
+    console.log("rewards USDC", fromWei(rewards[2]));
+    console.log("rewards USDT", fromWei(rewards[3]));
   });
 });

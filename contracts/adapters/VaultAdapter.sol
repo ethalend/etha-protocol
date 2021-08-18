@@ -6,10 +6,15 @@ import "../interfaces/IVault.sol";
 import "../interfaces/ICurvePool.sol";
 import "../interfaces/IDistribution.sol";
 import "../interfaces/IStrat2.sol";
+import "../interfaces/IAaveIncentives.sol";
+import "../interfaces/IAToken.sol";
+import "../interfaces/IMemory.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+
+import "hardhat/console.sol";
 
 contract VaultAdapter is OwnableUpgradeable {
 	using SafeMath for uint256;
@@ -36,6 +41,14 @@ contract VaultAdapter is OwnableUpgradeable {
 		for (uint256 i = 0; i < tokens.length; i++) {
 			priceFeeds[tokens[i]] = feeds[i];
 		}
+	}
+
+	function getAaveIncentivesAddress() public pure returns (address) {
+		return 0x357D51124f59836DeD84c8a1730D72B749d8BC23;
+	}
+
+	function getMemoryAddress() public pure returns (address) {
+		return 0x7f3584b047e3c23fC7fF1Fb2aC55130ac2162e20;
 	}
 
 	function setPriceFeed(address token, address feed) external {
@@ -126,5 +139,48 @@ contract VaultAdapter is OwnableUpgradeable {
 
 			info.stakingContract = IStrat2(info.strategy).gauge();
 		}
+	}
+
+	function getAaveRewards(address[] memory _tokens)
+		public
+		view
+		returns (uint256[] memory)
+	{
+		IAaveIncentives incentives = IAaveIncentives(
+			getAaveIncentivesAddress()
+		);
+
+		uint256[] memory _rewards = new uint256[](_tokens.length);
+
+		for (uint256 i = 0; i < _tokens.length; i++) {
+			IAToken aToken = IAToken(
+				IMemory(getMemoryAddress()).getAToken(_tokens[i])
+			);
+
+			uint256 totalSupply = formatDecimals(
+				address(aToken),
+				aToken.totalSupply()
+			);
+
+			(uint256 emissionPerSecond, , ) = incentives.assets(
+				address(aToken)
+			);
+
+			(, int256 maticPrice, , , ) = AggregatorV3Interface(
+				priceFeeds[0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE]
+			).latestRoundData();
+			(, int256 tokenPrice, , , ) = AggregatorV3Interface(
+				priceFeeds[_tokens[i]]
+			).latestRoundData();
+
+			_rewards[i] = emissionPerSecond
+				.mul(uint256(maticPrice))
+				.mul(365 days)
+				.mul(1 ether)
+				.div(totalSupply)
+				.div(uint256(tokenPrice));
+		}
+
+		return _rewards;
 	}
 }
