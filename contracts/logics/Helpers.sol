@@ -4,6 +4,7 @@ pragma solidity 0.8.4;
 import "../interfaces/IMemory.sol";
 import "../interfaces/IRegistry.sol";
 import "../interfaces/IWallet.sol";
+import "../interfaces/IFeeManager.sol";
 
 contract Helpers {
 	/**
@@ -11,6 +12,46 @@ contract Helpers {
 	 */
 	function getMemoryAddr() public view returns (address) {
 		return IRegistry(IWallet(address(this)).registry()).memoryAddr();
+	}
+
+	/**
+	 * @dev Return Lending fee and recipient
+	 */
+	function getLendingFee(address erc20)
+		public
+		view
+		returns (
+			uint256 fee,
+			uint256 maxFee,
+			address recipient
+		)
+	{
+		IRegistry registry = IRegistry(IWallet(address(this)).registry());
+		IFeeManager feeManager = IFeeManager(registry.getFeeManager());
+
+		fee = feeManager.getLendingFee(erc20);
+		maxFee = feeManager.MAX_FEE();
+		recipient = registry.feeRecipient();
+	}
+
+	/**
+	 * @dev Return Vault fee and recipient
+	 */
+	function getVaultFee(address vault)
+		public
+		view
+		returns (
+			uint256 fee,
+			uint256 maxFee,
+			address recipient
+		)
+	{
+		IRegistry registry = IRegistry(IWallet(address(this)).registry());
+		IFeeManager feeManager = IFeeManager(registry.getFeeManager());
+
+		fee = feeManager.getVaultFee(vault);
+		maxFee = feeManager.MAX_FEE();
+		recipient = registry.feeRecipient();
 	}
 
 	/**
