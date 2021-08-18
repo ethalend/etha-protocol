@@ -105,8 +105,7 @@ contract WalletRegistry is LogicRegistry, CloneFactory {
 	}
 }
 
-/// @title InstaRegistry
-/// @dev Initializing Registry
+/// @title ETHA Registry
 contract EthaRegistry is WalletRegistry {
 	/// @dev address of recipient receiving the protocol fees
 	address public feeRecipient;
@@ -126,6 +125,10 @@ contract EthaRegistry is WalletRegistry {
 	// EVENTS
 	event FeeUpdated(uint256 newFee);
 	event FeeRecipientUpdated(address newRecipient);
+	event FeeManagerUpdated(address newFeeManager);
+
+	/// @dev address of feeManager contract
+	address feeManager;
 
 	function initialize(
 		address _impl,
@@ -162,9 +165,18 @@ contract EthaRegistry is WalletRegistry {
 		return fee;
 	}
 
+	function getFeeManager() external view returns (address) {
+		return feeManager;
+	}
+
 	function changeFeeRecipient(address _feeRecipient) external onlyOwner {
 		feeRecipient = _feeRecipient;
 		emit FeeRecipientUpdated(_feeRecipient);
+	}
+
+	function changeFeeManager(address _feeManager) external onlyOwner {
+		feeManager = _feeManager;
+		emit FeeManagerUpdated(_feeManager);
 	}
 
 	/**

@@ -17,6 +17,8 @@ interface IRegistry {
 
 	function getFee() external view returns (uint256);
 
+	function getFeeManager() external view returns (address);
+
 	function feeRecipient() external view returns (address);
 
 	function memoryAddr() external view returns (address);
