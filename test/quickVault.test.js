@@ -9,7 +9,7 @@ const IERC20 = artifacts.require(
   "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20"
 );
 
-const { time, expectEvent } = require("@openzeppelin/test-helpers");
+const { expectEvent } = require("@openzeppelin/test-helpers");
 
 const {
   MATIC,
@@ -26,27 +26,23 @@ const {
   toBN,
 } = require("../deploy/utils");
 
-const FEE = 1000;
+const WITHDRAWAL_FEE = 10; // 0.1%
+const PERFORMANCE_FEE = 1700; // 17% performance
 
 contract("Quick Vault", ([]) => {
-  let registry,
-    wallet,
-    vault,
-    _vault,
-    quick,
-    _quick,
-    curve,
-    _curve,
-    dai,
-    usdc,
-    wbtc,
-    quickToken,
-    quickLP,
-    quickVault,
-    strat,
-    harvester;
-
   before(async function () {
+    await network.provider.request({
+      method: "hardhat_reset",
+      params: [
+        {
+          forking: {
+            jsonRpcUrl: process.env.NODE_URL,
+            blockNumber: 17900000,
+          },
+        },
+      ],
+    });
+
     [_owner, _user] = await ethers.getSigners();
     owner = _owner.address;
     user = _user.address;
@@ -81,6 +77,7 @@ contract("Quick Vault", ([]) => {
     quickVault = await ethers.getContract("QuickVault");
     strat = await ethers.getContract("QuickStrat");
     harvester = await ethers.getContract("Harvester");
+    feeManager = await ethers.getContract("FeeManager");
 
     await registry.connect(_user).deployWallet();
     const swAddress = await registry.wallets(user);
@@ -89,8 +86,9 @@ contract("Quick Vault", ([]) => {
     console.log(`\nWallet Address: ${swAddress}`);
   });
 
-  it("should set vault fee", async function () {
-    await quickVault.changePerformanceFee(FEE);
+  it("should set vault fees", async function () {
+    await feeManager.setVaultFee(quickVault.address, WITHDRAWAL_FEE);
+    await quickVault.changePerformanceFee(PERFORMANCE_FEE);
   });
 
   it("should swap MATIC for DAI", async function () {
@@ -171,8 +169,8 @@ contract("Quick Vault", ([]) => {
   });
 
   it("should initialize distribution contracts", async function () {
-    await time.advanceBlock();
-    await time.increase(time.duration.days(2));
+    await ethers.provider.send("evm_increaseTime", [10]); // add 10 seconds
+    await ethers.provider.send("evm_mine"); // mine the next block
 
     await etha.mint(factory.address, toWei(process.env.REWARD_AMOUNT_VAULTS));
 
@@ -264,13 +262,11 @@ contract("Quick Vault", ([]) => {
     expectEvent(tx, "LogSwap", {
       src: DAI,
       dest: USDC,
-      amount: toBN(daiBalance).div(toBN(2)),
     });
 
     expectEvent(tx, "LogLiquidityAdd", {
       tokenA: DAI,
       tokenB: USDC,
-      amountA: toBN(daiBalance).div(toBN(2)),
     });
 
     expectEvent(tx, "VaultDeposit", {
@@ -362,31 +358,39 @@ contract("Quick Vault", ([]) => {
     expect(fromWei(finalDAI) > fromWei(initialDAI));
   });
 
-  it("Should have profits in ETHA vault", async function () {
-    await time.advanceBlock();
-    await time.increase(time.duration.days(7));
+  it("should have profits in ETHA vault", async function () {
+    await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 7]); // add 7 days
+    await ethers.provider.send("evm_mine"); // mine the nex
 
     const calcTotalValue = await strat.calcTotalValue();
 
     const strat2 = await IStrat2.at(strat.address);
-    const totalYield = await strat2.totalYield();
+    totalYield = await strat2.totalYield();
     console.log("\tAvailable Quick Profits", fromWei(totalYield));
 
     expect(fromWei(totalYield)).to.be.greaterThan(0);
     expect(fromWei(calcTotalValue)).to.be.greaterThan(0);
   });
 
-  it("Should harvest profits in ETHA Vault", async function () {
+  it("should harvest profits in ETHA Vault", async function () {
     await harvester.harvestVault(quickVault.address);
 
     const balance = await quickToken.balanceOf(owner);
     console.log("\tOwner QUICK Fees Collected", fromWei(balance));
+    expect(fromWei(totalYield) * (PERFORMANCE_FEE / 10000)).to.be.at.least(
+      fromWei(balance)
+    );
+
+    // From withdraw fees
+    const balance2 = await quickLP.balanceOf(owner);
+    console.log("\tLP collected:", fromWei(balance2));
+    expect(fromWei(balance2)).to.be.greaterThan(0);
   });
 
   it("Should collect dividends from ETHA Vault", async function () {
     const dividends = await quickVault.dividendOf(wallet.address);
-    console.log("\tUser available WBTC dividends", fromWei(dividends));
-    expect(fromWei(dividends)).to.be.greaterThan(0);
+    console.log("\tUser available WBTC dividends", dividends / 10 ** 8);
+    expect(dividends / 10 ** 8).to.be.greaterThan(0);
 
     const data = await _vault.methods.claim(quickVault.address, 0).encodeABI();
 
@@ -399,7 +403,7 @@ contract("Quick Vault", ([]) => {
 
     const balance = await wbtc.balanceOf(wallet.address);
     console.log("\tUser claimed WBTC rewards", balance / 10 ** 8);
-    expect(balance / 10 ** 8).to.be.greaterThan(0);
+    expect(balance / 10 ** 8).to.be.equal(dividends / 10 ** 8);
 
     const balanceETHA = await etha.balanceOf(wallet.address);
     console.log("\tUser claimed ETHA rewards", fromWei(balanceETHA));

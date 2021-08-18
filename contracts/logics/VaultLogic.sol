@@ -46,18 +46,21 @@ contract VaultResolver is DSMath {
 	event VaultClaim(address indexed erc20, uint256 tokenAmt);
 	event Claim(address indexed erc20, uint256 tokenAmt);
 
-	function _payFees(address erc20, uint256 amt) internal {
-		address registry = IWallet(address(this)).registry();
-		uint256 fee = IRegistry(registry).getFee();
+	function _payFees(
+		address _vault,
+		address underlying,
+		uint256 amt
+	) internal {
+		(uint256 fee, uint256 maxFee, address feeRecipient) = getVaultFee(
+			_vault
+		);
 
 		if (fee > 0) {
-			address feeRecipient = IRegistry(registry).feeRecipient();
-
 			require(feeRecipient != address(0), "ZERO ADDRESS");
 
-			IERC20(erc20).universalTransfer(
+			IERC20(underlying).universalTransfer(
 				feeRecipient,
-				div(mul(amt, fee), 100000)
+				div(mul(amt, fee), maxFee)
 			);
 		}
 	}
@@ -107,7 +110,7 @@ contract VaultResolver is DSMath {
 		address underlying = address(vault.underlying());
 		emit VaultWithdraw(underlying, realAmt);
 
-		_payFees(underlying, realAmt);
+		_payFees(address(vault), underlying, realAmt);
 
 		uint256 _claimed = IERC20(distToken).balanceOf(address(this)).sub(
 			initialBal
