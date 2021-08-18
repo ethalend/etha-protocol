@@ -30,23 +30,6 @@ const WITHDRAWAL_FEE = 10; // 0.1%
 const PERFORMANCE_FEE = 1700; // 17% performance
 
 contract("Quick Vault 2", ([]) => {
-  let registry,
-    wallet,
-    vault,
-    _vault,
-    quick,
-    _quick,
-    curve,
-    _curve,
-    usdt,
-    usdc,
-    wbtc,
-    quickToken,
-    quickLP,
-    quickVault,
-    strat,
-    harvester;
-
   before(async function () {
     [_owner, _user] = await ethers.getSigners();
     owner = _owner.address;

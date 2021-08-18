@@ -37,7 +37,7 @@ contract("Adapters", ([]) => {
     });
   });
 
-  it.only("should fetch curve vault info", async function () {
+  it("should fetch curve vault info", async function () {
     const {
       depositToken,
       rewardsToken,
@@ -48,7 +48,7 @@ contract("Adapters", ([]) => {
       ethaRewardsRate,
     } = await vaultAdapter.getVaultInfo(
       "0x4e5b645B69e873295511C6cA5B8951c3ff4F74F4",
-      false
+      0
     );
 
     console.log("depositToken", depositToken);
@@ -72,7 +72,7 @@ contract("Adapters", ([]) => {
       ethaRewardsRate,
     } = await vaultAdapter.getVaultInfo(
       "0xb56AAb9696B95a75A6edD5435bc9dCC4b07403b0",
-      true
+      1
     );
 
     console.log("depositToken", depositToken);

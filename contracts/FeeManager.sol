@@ -1,16 +1,24 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract FeeManager is Ownable {
+contract FeeManager is OwnableUpgradeable {
 	uint256 public constant MAX_FEE = 10000;
 
 	mapping(address => uint256) vaults;
 	mapping(address => uint256) lending;
 
+	function initialize() public initializer {
+		__Ownable_init();
+	}
+
 	function getVaultFee(address _vault) external view returns (uint256) {
 		return vaults[_vault];
+	}
+
+	function getLendingFee(address _asset) external view returns (uint256) {
+		return lending[_asset];
 	}
 
 	function setVaultFee(address _vault, uint256 _fee) external onlyOwner {
@@ -27,10 +35,6 @@ contract FeeManager is Ownable {
 			require(_fees[i] <= MAX_FEE);
 			vaults[_vaults[i]] = _fees[i];
 		}
-	}
-
-	function getLendingFee(address _asset) external view returns (uint256) {
-		return lending[_asset];
 	}
 
 	function setLendingFee(address _asset, uint256 _fee) external onlyOwner {

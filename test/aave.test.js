@@ -216,11 +216,12 @@ contract("Aave Logic", () => {
 
   it("should collect fees when redeeming", async function () {
     const fee = await feeManager.getLendingFee(DAI);
+    const max = await feeManager.MAX_FEE();
 
     const balance = await dai.balanceOf(owner);
     console.log("\tDAI received:", fromWei(balance));
-    expect(fromWei(balance)).to.be.equal(
-      (fromWei(daiToRedeem) * Number(fee)) / 10000
+    expect((fromWei(daiToRedeem) * Number(fee)) / Number(max)).to.be.at.least(
+      fromWei(balance)
     );
   });
 

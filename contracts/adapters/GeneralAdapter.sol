@@ -11,8 +11,14 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-contract VaultAdapter is OwnableUpgradeable {
+contract GeneralAdapter is OwnableUpgradeable {
 	using SafeMath for uint256;
+
+	enum VaultType {
+		CURVE,
+		QUICK,
+		MSTABLE
+	}
 
 	mapping(address => address) public priceFeeds;
 
@@ -33,16 +39,18 @@ contract VaultAdapter is OwnableUpgradeable {
 		public
 		initializer
 	{
+		__Ownable_init();
+
 		for (uint256 i = 0; i < tokens.length; i++) {
 			priceFeeds[tokens[i]] = feeds[i];
 		}
 	}
 
-	function setPriceFeed(address token, address feed) external {
+	function setPriceFeed(address token, address feed) external onlyOwner {
 		priceFeeds[token] = feed;
 	}
 
-	function setCurvePool(address lpToken, address pool) external {
+	function setCurvePool(address lpToken, address pool) external onlyOwner {
 		curvePools[lpToken] = pool;
 	}
 
@@ -93,7 +101,7 @@ contract VaultAdapter is OwnableUpgradeable {
 		lpValueUSD = lpBalance.mul(totalMarket).div(totalSupply);
 	}
 
-	function getVaultInfo(IVault vault, bool isQuick)
+	function getVaultInfo(IVault vault, VaultType vaultType)
 		external
 		view
 		returns (VaultInfo memory info)
@@ -108,14 +116,7 @@ contract VaultAdapter is OwnableUpgradeable {
 			? 0
 			: dist.rewardRate();
 
-		if (isQuick) {
-			(, , uint256 usdValue) = getQuickswapBalance(
-				info.depositToken,
-				info.totalDeposits
-			);
-			info.totalDepositsUSD = usdValue;
-			info.stakingContract = IStrat2(info.strategy).staking();
-		} else {
+		if (vaultType == VaultType.CURVE) {
 			info.totalDepositsUSD = info
 				.totalDeposits
 				.mul(
@@ -125,6 +126,15 @@ contract VaultAdapter is OwnableUpgradeable {
 				.div(1 ether);
 
 			info.stakingContract = IStrat2(info.strategy).gauge();
+		}
+
+		if (vaultType == VaultType.QUICK) {
+			(, , uint256 usdValue) = getQuickswapBalance(
+				info.depositToken,
+				info.totalDeposits
+			);
+			info.totalDepositsUSD = usdValue;
+			info.stakingContract = IStrat2(info.strategy).staking();
 		}
 	}
 }
