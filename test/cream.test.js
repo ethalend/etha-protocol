@@ -25,21 +25,9 @@ const {
 } = require("../deploy/utils");
 
 contract("Cream Logic", () => {
-  let registry,
-    wallet,
-    quick,
-    _quick,
-    cream,
-    _cream,
-    dai,
-    eth,
-    wmatic,
-    memory,
-    investments,
-    user;
-
   before(async function () {
     [_owner, _user] = await ethers.getSigners();
+    owner = _owner.address;
     user = _user.address;
 
     await fixture(["Adapters", "EthaRegistry"]);
@@ -61,6 +49,7 @@ contract("Cream Logic", () => {
     registry = await ethers.getContract("EthaRegistry");
     memory = await ethers.getContract("Memory");
     investments = await ethers.getContract("Investments");
+    feeManager = await ethers.getContract("FeeManager");
 
     await registry.connect(_user).deployWallet();
     const swAddress = await registry.wallets(user);
@@ -138,13 +127,13 @@ contract("Cream Logic", () => {
   it("should redeem DAI from Cream", async function () {
     // Using investments adapter
     const balances = await investments.getBalances([DAI], wallet.address);
-    const _balance = balances[0].cream;
+    daiToRedeem = balances[0].cream;
 
-    console.log("\tDAI invested:", fromWei(_balance));
-    expect(fromWei(_balance)).to.be.greaterThan(0);
+    console.log("\tDAI invested:", fromWei(daiToRedeem));
+    expect(fromWei(daiToRedeem)).to.be.greaterThan(0);
 
     const data = await _cream.methods
-      .redeemUnderlying(DAI, toBN(_balance), 0, 0, 1)
+      .redeemUnderlying(DAI, toBN(daiToRedeem), 0, 0, 1)
       .encodeABI();
 
     const tx = await wallet.execute([cream.address], [data], {
@@ -154,7 +143,7 @@ contract("Cream Logic", () => {
 
     expectEvent(tx, "LogRedeem", {
       erc20: DAI,
-      tokenAmt: toBN(_balance),
+      tokenAmt: toBN(daiToRedeem),
     });
 
     console.log("\tGas Used:", tx.receipt.gasUsed);
@@ -162,6 +151,16 @@ contract("Cream Logic", () => {
     const balance = await crDai.balanceOf(wallet.address);
     console.log("\tcrDAI balance:", balance * 1e-8);
     expect(fromWei(balance) < 0.1); // there is some dust for the interest earned
+  });
+
+  it("should collect fees when redeeming", async function () {
+    const fee = await feeManager.getLendingFee(DAI);
+
+    const balance = await dai.balanceOf(owner);
+    console.log("\tDAI received:", fromWei(balance));
+    expect(fromWei(balance)).to.be.equal(
+      (fromWei(daiToRedeem) * Number(fee)) / 10000
+    );
   });
 
   it("should borrow ETH from Cream", async function () {
