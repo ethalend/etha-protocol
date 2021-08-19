@@ -28,23 +28,6 @@ const {
 const { expect } = require("chai");
 
 contract("Curve Vault", () => {
-  let registry,
-    wallet,
-    vault,
-    quick,
-    curve,
-    dai,
-    eth,
-    wmatic,
-    a3CRV,
-    curveVault,
-    strat,
-    harvester,
-    memory,
-    etha,
-    distRewards,
-    factory;
-
   before(async function () {
     [_owner, _user] = await ethers.getSigners();
     owner = _owner.address;

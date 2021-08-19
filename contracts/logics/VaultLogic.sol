@@ -50,7 +50,7 @@ contract VaultResolver is DSMath {
 		address _vault,
 		address underlying,
 		uint256 amt
-	) internal {
+	) internal returns (uint256 feesPaid) {
 		(uint256 fee, uint256 maxFee, address feeRecipient) = getVaultFee(
 			_vault
 		);
@@ -58,10 +58,9 @@ contract VaultResolver is DSMath {
 		if (fee > 0) {
 			require(feeRecipient != address(0), "ZERO ADDRESS");
 
-			IERC20(underlying).universalTransfer(
-				feeRecipient,
-				div(mul(amt, fee), maxFee)
-			);
+			feesPaid = div(mul(amt, fee), maxFee);
+
+			IERC20(underlying).universalTransfer(feeRecipient, feesPaid);
 		}
 	}
 
@@ -96,7 +95,8 @@ contract VaultResolver is DSMath {
 	function withdraw(
 		IVault vault,
 		uint256 tokenAmt,
-		uint256 getId
+		uint256 getId,
+		uint256 setId
 	) external payable {
 		uint256 realAmt = getId > 0 ? getUint(getId) : tokenAmt;
 
@@ -105,16 +105,20 @@ contract VaultResolver is DSMath {
 		address distToken = IDistribution(vault.distribution()).rewardsToken();
 		uint256 initialBal = IERC20(distToken).balanceOf(address(this));
 
-		// IERC20(address(vault)).universalApprove(address(vault), realAmt);
 		vault.withdraw(realAmt);
 		address underlying = address(vault.underlying());
 		emit VaultWithdraw(underlying, realAmt);
 
-		_payFees(address(vault), underlying, realAmt);
+		uint256 feesPaid = _payFees(address(vault), underlying, realAmt);
 
 		uint256 _claimed = IERC20(distToken).balanceOf(address(this)).sub(
 			initialBal
 		);
+
+		// set tokens received after paying fees
+		if (setId > 0) {
+			setUint(setId, realAmt.sub(feesPaid));
+		}
 
 		if (_claimed > 0) {
 			emit Claim(distToken, _claimed);

@@ -275,7 +275,7 @@ contract("Quick Vault 2", ([]) => {
     const balance = await quickVault.balanceOf(wallet.address);
 
     const data = await _vault.methods
-      .withdraw(quickVault.address, toBN(balance).div(toBN(3)), 0)
+      .withdraw(quickVault.address, toBN(balance).div(toBN(3)), 0, 0)
       .encodeABI();
 
     // Execute LEGO Tx
@@ -299,7 +299,7 @@ contract("Quick Vault 2", ([]) => {
 
     // Withdraw from vault
     const data1 = await _vault.methods
-      .withdraw(quickVault.address, toBN(balance).div(toBN(2)), 0)
+      .withdraw(quickVault.address, toBN(balance).div(toBN(2)), 0, 1)
       .encodeABI();
 
     // Remove liquidity from Quickswap
@@ -308,11 +308,11 @@ contract("Quick Vault 2", ([]) => {
         USDT,
         USDC,
         QUICK_LP,
-        toBN(balance).div(toBN(2)),
-        0,
-        1,
-        2,
-        1
+        0 /* amount LP read from memory */,
+        1 /* getId */,
+        1 /* setId1*/,
+        2 /* setId2*/,
+        2 /* divider*/
       )
       .encodeABI();
 

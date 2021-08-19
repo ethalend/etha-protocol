@@ -286,7 +286,7 @@ contract("Quick Vault", ([]) => {
     const balance = await quickVault.balanceOf(wallet.address);
 
     const data = await _vault.methods
-      .withdraw(quickVault.address, toBN(balance).div(toBN(3)), 0)
+      .withdraw(quickVault.address, toBN(balance).div(toBN(3)), 0, 0)
       .encodeABI();
 
     // Execute LEGO Tx
@@ -302,6 +302,27 @@ contract("Quick Vault", ([]) => {
     expect(fromWei(finalBalance) < fromWei(balance));
   });
 
+  it("should be able to remove liquidity from quickswap", async function () {
+    const balance = await quickLP.balanceOf(wallet.address);
+
+    // Remove liquidity from Quickswap
+    const data = await _quick.methods
+      .removeLiquidity(DAI, USDC, QUICK_LP, toBN(balance), 0, 0, 0, 1)
+      .encodeABI();
+
+    // Execute LEGO Tx
+    const tx = await wallet.execute([quick.address], [data], {
+      from: user,
+      gas: web3.utils.toHex(5e6),
+    });
+
+    console.log("\tGas Used:", tx.receipt.gasUsed);
+
+    // Lower ETHA Vault tokens
+    const finalBalance = await quickLP.balanceOf(wallet.address);
+    expect(fromWei(finalBalance)).to.be.equal(0);
+  });
+
   it("should be able to withdraw from ETHA vault as DAI", async function () {
     const balance = await quickVault.balanceOf(wallet.address);
     const initialDAI = await dai.balanceOf(wallet.address);
@@ -310,7 +331,7 @@ contract("Quick Vault", ([]) => {
 
     // Withdraw from vault
     const data1 = await _vault.methods
-      .withdraw(quickVault.address, toBN(balance).div(toBN(2)), 0)
+      .withdraw(quickVault.address, toBN(balance).div(toBN(2)), 0, 1)
       .encodeABI();
 
     // Remove liquidity from Quickswap
@@ -319,11 +340,11 @@ contract("Quick Vault", ([]) => {
         DAI,
         USDC,
         QUICK_LP,
-        toBN(balance).div(toBN(2)),
-        0,
-        1,
-        2,
-        1
+        0 /* amount LP (read from memory) */,
+        1 /* getId */,
+        0 /* setId1*/,
+        2 /* setId2 store USDC received from liq remove*/,
+        1 /* divider*/
       )
       .encodeABI();
 
@@ -362,14 +383,11 @@ contract("Quick Vault", ([]) => {
     await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 7]); // add 7 days
     await ethers.provider.send("evm_mine"); // mine the nex
 
-    const calcTotalValue = await strat.calcTotalValue();
-
     const strat2 = await IStrat2.at(strat.address);
     totalYield = await strat2.totalYield();
     console.log("\tAvailable Quick Profits", fromWei(totalYield));
 
     expect(fromWei(totalYield)).to.be.greaterThan(0);
-    expect(fromWei(calcTotalValue)).to.be.greaterThan(0);
   });
 
   it("should harvest profits in ETHA Vault", async function () {
