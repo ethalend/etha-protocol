@@ -102,13 +102,18 @@ contract AaveHelpers is DSMath {
 		}
 	}
 
-	function _payFees(address erc20, uint256 amt) internal {
+	function _payFees(address erc20, uint256 amt)
+		internal
+		returns (uint256 feesPaid)
+	{
 		(uint256 fee, uint256 maxFee, address feeRecipient) = getLendingFee(
 			erc20
 		);
 
 		if (fee > 0) {
 			require(feeRecipient != address(0), "ZERO ADDRESS");
+
+			feesPaid = div(mul(amt, fee), maxFee);
 
 			IERC20(erc20).universalTransfer(
 				feeRecipient,
@@ -210,12 +215,12 @@ contract AaveResolver is AaveHelpers {
 		ILendingPool _lendingPool = ILendingPool(getLendingPoolAddress());
 		_lendingPool.withdraw(erc20, realAmt, address(this));
 
-		_payFees(erc20, realAmt);
 		_unstake(erc20, realAmt);
+		uint256 feesPaid = _payFees(erc20, realAmt);
 
-		// set amount of tokens received
+		// set amount of tokens received minus fees
 		if (setId > 0) {
-			setUint(setId, IERC20(erc20).universalBalanceOf(address(this)));
+			setUint(setId, realAmt.sub(feesPaid));
 		}
 
 		emit LogRedeem(erc20, realAmt);

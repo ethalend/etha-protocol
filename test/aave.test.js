@@ -220,8 +220,8 @@ contract("Aave Logic", () => {
 
     const balance = await dai.balanceOf(owner);
     console.log("\tDAI received:", fromWei(balance));
-    expect((fromWei(daiToRedeem) * Number(fee)) / Number(max)).to.be.at.least(
-      fromWei(balance)
+    expect(fromWei(balance)).to.be.at.least(
+      (fromWei(daiToRedeem) * Number(fee)) / Number(max)
     );
   });
 

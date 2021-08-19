@@ -23,28 +23,6 @@ const {
 } = require("../deploy/utils");
 
 contract("Chaining Transactions", () => {
-  let registry,
-    wallet,
-    user,
-    quick,
-    aave,
-    cream,
-    curve,
-    vault,
-    memoryLogic,
-    _quick,
-    _aave,
-    _cream,
-    _memory,
-    _curve,
-    _vault,
-    aaveDai,
-    creamDai,
-    memory,
-    balances,
-    curveVault,
-    investments;
-
   before(async function () {
     [_owner, _user] = await ethers.getSigners();
     user = _user.address;

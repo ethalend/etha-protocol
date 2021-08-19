@@ -33,8 +33,6 @@ const {
 const { expect } = require("chai");
 
 contract("Advanced Features", () => {
-  let registry, wallet, quick, aave, dai, eth, wmatic, memory, investments;
-
   before(async function () {
     [_owner, _user] = await ethers.getSigners();
     user = _user.address;
@@ -149,8 +147,8 @@ contract("Advanced Features", () => {
   });
 
   it("should reinvest Aave Matic rewards into DAI Lending", async function () {
-    await time.advanceBlock();
-    await time.increase(time.duration.days(7));
+    await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 7]); // add 7 days
+    await ethers.provider.send("evm_mine"); // mine the next block
 
     let balance = await aDai.balanceOf(wallet.address);
     console.log("\tInitial aDai balance:", fromWei(balance));
@@ -201,15 +199,12 @@ contract("Advanced Features", () => {
     const balances = await investments.getBalances([MATIC], wallet.address);
     expect(fromWei(balances[0].aave)).to.be.greaterThan(0);
 
-    let fee = await registry.getFee();
-    fee = Number(fee) / 100000;
-
     const data1 = await _aave.methods
-      .redeemAToken(WMATIC, toWei(5), 0, 0, 1)
+      .redeemAToken(WMATIC, toWei(5), 0, 1, 1) // store received tokens to memory (redeemed - fees)
       .encodeABI();
 
     const data2 = await _quick.methods
-      .swap([WMATIC, USDC], toWei(5 * (1 - fee)), 0, 1, 1) // need to take care of redeem fee
+      .swap([WMATIC, USDC], 0, 1, 1, 1)
       .encodeABI();
 
     const data3 = await _aave.methods

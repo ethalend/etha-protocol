@@ -107,13 +107,18 @@ contract CreamHelpers is DSMath {
 		}
 	}
 
-	function _payFees(address erc20, uint256 amt) internal {
+	function _payFees(address erc20, uint256 amt)
+		internal
+		returns (uint256 feesPaid)
+	{
 		(uint256 fee, uint256 maxFee, address feeRecipient) = getLendingFee(
 			erc20
 		);
 
 		if (fee > 0) {
 			require(feeRecipient != address(0), "ZERO ADDRESS");
+
+			feesPaid = div(mul(amt, fee), maxFee);
 
 			IERC20(erc20).universalTransfer(
 				feeRecipient,
@@ -186,17 +191,17 @@ contract CreamResolver is CreamHelpers {
 
 		ICToken cToken = ICToken(getCrToken(erc20));
 		uint256 toBurn = cToken.balanceOf(address(this));
-		if (toBurn > cTokenAmt) {
-			toBurn = cTokenAmt;
+		if (toBurn > realAmt) {
+			toBurn = realAmt;
 		}
 		require(cToken.redeem(toBurn) == 0, "something went wrong");
 		uint256 tokenReturned = wmul(toBurn, cToken.exchangeRateCurrent());
 
-		_payFees(erc20, realAmt);
+		uint256 feesPaid = _payFees(erc20, tokenReturned);
 
-		// set amount of tokens received
+		// set amount of tokens redeemed minus fees
 		if (setId > 0) {
-			setUint(setId, tokenReturned);
+			setUint(setId, tokenReturned.sub(feesPaid));
 		}
 
 		emit LogRedeem(erc20, tokenReturned);
@@ -226,11 +231,11 @@ contract CreamResolver is CreamHelpers {
 			"something went wrong"
 		);
 
-		_payFees(erc20, tokenToReturn);
+		uint256 feesPaid = _payFees(erc20, tokenToReturn);
 
 		// set amount of tokens received
 		if (setId > 0) {
-			setUint(setId, tokenToReturn);
+			setUint(setId, tokenToReturn.sub(feesPaid));
 		}
 
 		emit LogRedeem(erc20, tokenToReturn);
