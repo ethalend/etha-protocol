@@ -25,7 +25,8 @@ const {
   toBN,
 } = require("../deploy/utils");
 
-const FEE = 1000;
+const WITHDRAWAL_FEE = 10; // 0.1%
+const PERFORMANCE_FEE = 2000; // 20% performance
 
 contract("mStable Vault", () => {
   before(async function () {
@@ -69,6 +70,7 @@ contract("mStable Vault", () => {
     harvester = await ethers.getContract("Harvester");
     etha = await ethers.getContract("ETHAToken");
     factory = await ethers.getContract("VaultDistributionFactory");
+    feeManager = await ethers.getContract("FeeManager");
 
     await registry.connect(_user).deployWallet();
     const swAddress = await registry.wallets(user);
@@ -78,7 +80,8 @@ contract("mStable Vault", () => {
   });
 
   it("should set vault fee", async function () {
-    await mstableVault.changePerformanceFee(FEE);
+    await feeManager.setVaultFee(mstableVault.address, WITHDRAWAL_FEE);
+    await mstableVault.changePerformanceFee(PERFORMANCE_FEE);
   });
 
   it("should initialize distribution contracts", async function () {
@@ -281,7 +284,7 @@ contract("mStable Vault", () => {
     const vaultBalance = await mstableVault.balanceOf(wallet.address);
 
     const data = await _vault.methods
-      .withdraw(mstableVault.address, toBN(vaultBalance), 0)
+      .withdraw(mstableVault.address, toBN(vaultBalance), 0, 0)
       .encodeABI();
 
     const tx = await wallet.execute([vault.address], [data], {
@@ -297,5 +300,10 @@ contract("mStable Vault", () => {
 
     const balance2 = await mstableVault.balanceOf(wallet.address);
     expect(fromWei(balance2)).to.be.equal(0);
+  });
+
+  it("should get vault withdrawal fees", async function () {
+    const balance = await imusd.balanceOf(owner);
+    console.log("\tOwner imUSD Fees Collected", fromWei(balance));
   });
 });

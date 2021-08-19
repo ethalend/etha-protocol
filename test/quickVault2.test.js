@@ -27,7 +27,7 @@ const {
 } = require("../deploy/utils");
 
 const WITHDRAWAL_FEE = 10; // 0.1%
-const PERFORMANCE_FEE = 1700; // 17% performance
+const PERFORMANCE_FEE = 2000; // 20% performance
 
 contract("Quick Vault 2", ([]) => {
   before(async function () {
