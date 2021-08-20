@@ -15,18 +15,6 @@ contract BalancerResolver is Helpers {
 
 	// EVENTS
 	event LogSwap(address indexed src, address indexed dest, uint256 amount);
-	event LogLiquidityAdd(
-		address indexed tokenA,
-		address indexed tokenB,
-		uint256 amountA,
-		uint256 amountB
-	);
-	event LogLiquidityRemove(
-		address indexed tokenA,
-		address indexed tokenB,
-		uint256 amountA,
-		uint256 amountB
-	);
 
 	/**
 	 * @dev Swap tokens in Quickswap dex
@@ -44,7 +32,7 @@ contract BalancerResolver is Helpers {
 		uint256 getId,
 		uint256 setId,
 		uint256 divider
-	) external {
+	) external payable {
 		uint256 realAmt = getId > 0 ? getUint(getId).div(divider) : tokenAmt;
 
 		require(realAmt > 0, "ZERO AMOUNT");
@@ -79,7 +67,7 @@ contract BalancerResolver is Helpers {
 			setUint(setId, received);
 		}
 
-		emit LogSwap(address(fromToken), address(destToken), realAmt);
+		emit LogSwap(fromToken, destToken, realAmt);
 	}
 }
 
