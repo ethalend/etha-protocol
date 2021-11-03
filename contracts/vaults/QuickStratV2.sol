@@ -4,12 +4,13 @@ pragma solidity 0.8.4;
 import "../interfaces/IStrat.sol";
 import "../interfaces/IVault.sol";
 import "../interfaces/IStakingRewards.sol";
+import "../interfaces/IDragonLair.sol";
 import "../utils/Timelock.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract QuickStrat is IStrat {
+contract QuickStratV2 is IStrat {
 	using SafeMath for uint256;
 	using SafeERC20 for IERC20;
 
@@ -19,6 +20,9 @@ contract QuickStrat is IStrat {
 
 	IERC20 public constant QUICK =
 		IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
+
+	IDragonLair public constant DQUICK =
+		IDragonLair(0xf28164A485B0B2C90639E47b0f377b4a438a16B1);
 
 	// Quikswap LP Staking Rewards Contract
 	IStakingRewards public staking;
@@ -101,6 +105,10 @@ contract QuickStrat is IStrat {
 	*/
 	function claim() external override onlyVault returns (uint256 claimed) {
 		staking.getReward();
+
+		uint256 claimedDQUICK = DQUICK.balanceOf(address(this));
+		DQUICK.leave(claimedDQUICK);
+
 		claimed = QUICK.balanceOf(address(this));
 		QUICK.safeTransfer(address(vault), claimed);
 	}

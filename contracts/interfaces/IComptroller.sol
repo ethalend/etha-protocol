@@ -21,4 +21,13 @@ interface IComptroller {
 			uint256,
 			uint256
 		);
+
+	function markets(address cTokenAddress)
+		external
+		view
+		returns (
+			bool,
+			uint256,
+			uint8
+		);
 }

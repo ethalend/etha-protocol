@@ -3,6 +3,8 @@ pragma solidity ^0.8.0;
 
 import "../libs/UniversalERC20.sol";
 import "../interfaces/IVault.sol";
+import "../interfaces/IDistribution.sol";
+import "hardhat/console.sol";
 import "./Helpers.sol";
 
 contract DSMath is Helpers {
@@ -38,10 +40,30 @@ contract DSMath is Helpers {
 
 contract VaultResolver is DSMath {
 	using UniversalERC20 for IERC20;
+	using SafeMath for uint256;
 
 	event VaultDeposit(address indexed erc20, uint256 tokenAmt);
 	event VaultWithdraw(address indexed erc20, uint256 tokenAmt);
 	event VaultClaim(address indexed erc20, uint256 tokenAmt);
+	event Claim(address indexed erc20, uint256 tokenAmt);
+
+	function _payFees(
+		address _vault,
+		address underlying,
+		uint256 amt
+	) internal returns (uint256 feesPaid) {
+		(uint256 fee, uint256 maxFee, address feeRecipient) = getVaultFee(
+			_vault
+		);
+
+		if (fee > 0) {
+			require(feeRecipient != address(0), "ZERO ADDRESS");
+
+			feesPaid = div(mul(amt, fee), maxFee);
+
+			IERC20(underlying).universalTransfer(feeRecipient, feesPaid);
+		}
+	}
 
 	/**
 	 * @dev Deposit tokens to ETHA Vault
@@ -74,17 +96,34 @@ contract VaultResolver is DSMath {
 	function withdraw(
 		IVault vault,
 		uint256 tokenAmt,
-		uint256 getId
+		uint256 getId,
+		uint256 setId
 	) external payable {
 		uint256 realAmt = getId > 0 ? getUint(getId) : tokenAmt;
 
 		require(vault.balanceOf(address(this)) >= realAmt, "!BALANCE");
 
-		IERC20(address(vault)).universalApprove(address(vault), realAmt);
+		address distToken = IDistribution(vault.distribution()).rewardsToken();
+		uint256 initialBal = IERC20(distToken).balanceOf(address(this));
 
 		vault.withdraw(realAmt);
+		address underlying = address(vault.underlying());
+		emit VaultWithdraw(underlying, realAmt);
 
-		emit VaultWithdraw(address(vault.underlying()), realAmt);
+		uint256 feesPaid = _payFees(address(vault), underlying, realAmt);
+
+		uint256 _claimed = IERC20(distToken).balanceOf(address(this)).sub(
+			initialBal
+		);
+
+		// set tokens received after paying fees
+		if (setId > 0) {
+			setUint(setId, realAmt.sub(feesPaid));
+		}
+
+		if (_claimed > 0) {
+			emit Claim(distToken, _claimed);
+		}
 	}
 
 	/**
@@ -93,6 +132,9 @@ contract VaultResolver is DSMath {
 	 * @param setId store value of rewards received to memory contract
 	 */
 	function claim(IVault vault, uint256 setId) external {
+		address distToken = IDistribution(vault.distribution()).rewardsToken();
+		uint256 initialBal = IERC20(distToken).balanceOf(address(this));
+
 		uint256 claimed = vault.claim();
 
 		// set rewards received
@@ -100,7 +142,17 @@ contract VaultResolver is DSMath {
 			setUint(setId, claimed);
 		}
 
-		emit VaultClaim(address(vault.target()), claimed);
+		if (claimed > 0) {
+			emit VaultClaim(address(vault.target()), claimed);
+		}
+
+		uint256 _claimed = IERC20(distToken).balanceOf(address(this)).sub(
+			initialBal
+		);
+
+		if (_claimed > 0) {
+			emit Claim(distToken, _claimed);
+		}
 	}
 }
 

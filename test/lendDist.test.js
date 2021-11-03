@@ -11,7 +11,13 @@ const IERC20 = artifacts.require(
   "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20"
 );
 
-const { time } = require("@openzeppelin/test-helpers");
+require("@openzeppelin/test-helpers/configure")({
+  singletons: {
+    abstraction: "truffle",
+  },
+});
+
+const { time, expectEvent } = require("@openzeppelin/test-helpers");
 
 const {
   MATIC,
@@ -181,6 +187,10 @@ contract("Distribution", () => {
       gas: web3.utils.toHex(5e6),
     });
 
+    expectEvent(tx, "Claim", {
+      erc20: etha.address,
+    });
+
     console.log("\tGas Used:", tx.receipt.gasUsed);
 
     const balance = await etha.balanceOf(wallet.address);
@@ -201,6 +211,10 @@ contract("Distribution", () => {
     const tx = await wallet.execute([claim.address], [data], {
       from: user,
       gas: web3.utils.toHex(5e6),
+    });
+
+    expectEvent(tx, "Claim", {
+      erc20: WMATIC,
     });
 
     console.log("\tGas Used:", tx.receipt.gasUsed);

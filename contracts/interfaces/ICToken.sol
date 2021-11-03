@@ -22,8 +22,6 @@ interface ICToken {
 
 	function getCash() external view returns (uint256);
 
-	function totalBorrowsCurrent() external returns (uint256);
-
 	function borrowRatePerBlock() external view returns (uint256);
 
 	function supplyRatePerBlock() external view returns (uint256);
@@ -37,6 +35,11 @@ interface ICToken {
 	function totalSupply() external view returns (uint256);
 
 	function balanceOf(address owner) external view returns (uint256 balance);
+
+	function borrowBalanceStored(address owner)
+		external
+		view
+		returns (uint256 balance);
 
 	function allowance(address, address) external view returns (uint256);
 

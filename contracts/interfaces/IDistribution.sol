@@ -9,4 +9,12 @@ interface IDistribution {
 	function getReward(address user) external;
 
 	function balanceOf(address account) external view returns (uint256);
+
+	function rewardsToken() external view returns (address);
+
+	function earned(address account) external view returns (uint256);
+
+	function rewardPerToken() external view returns (uint256);
+
+	function rewardRate() external view returns (uint256);
 }

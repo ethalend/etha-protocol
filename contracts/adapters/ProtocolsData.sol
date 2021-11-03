@@ -19,6 +19,33 @@ interface IProtocolDataProvider {
 			uint256 liquidityRate,
 			uint256 variableBorrowRate
 		);
+
+	function getReserveConfigurationData(address asset)
+		external
+		view
+		returns (
+			uint256 decimals,
+			uint256 ltv,
+			uint256 liquidationThreshold,
+			uint256 liquidationBonus,
+			uint256 reserveFactor,
+			bool usageAsCollateralEnabled,
+			bool borrowingEnabled,
+			bool stableBorrowRateEnabled,
+			bool isActive,
+			bool isFrozen
+		);
+}
+
+interface IComptroller {
+	function markets(address asset)
+		external
+		view
+		returns (
+			bool isListed,
+			uint256 collateralFactor,
+			uint8 version
+		);
 }
 
 contract ProtocolsData {
@@ -37,21 +64,16 @@ contract ProtocolsData {
 	IProtocolDataProvider aaveDataProviderV2 =
 		IProtocolDataProvider(0x7551b5D2763519d4e37e8B81929D336De671d46d);
 
+	IComptroller creamComptroller =
+		IComptroller(0x20CA53E2395FA571798623F1cFBD11Fe2C114c24);
+
 	struct Data {
 		uint256 liquidity;
 		uint256 supplyRate;
 		uint256 borrowRate;
 		uint256 utilizationRate;
-	}
-
-	struct DydxData {
-		uint256 market;
-		uint256 supply;
-		uint256 borrow;
-	}
-
-	struct Rate {
-		uint256 value;
+		uint256 ltv;
+		uint256 threshold;
 	}
 
 	constructor(IMemory _memoryContract) {
@@ -67,11 +89,23 @@ contract ProtocolsData {
 		uint256 reserves = cToken.totalReserves();
 		uint256 totalBorrows = cToken.totalBorrows();
 
+		(, uint256 collateralFactor, ) = creamComptroller.markets(
+			address(cToken)
+		);
+
 		uint256 utilizationRate = totalBorrows.mul(1 ether).div(
 			liquidity.add(totalBorrows).sub(reserves)
 		);
 
-		return Data(liquidity, supplyRate, borrowRate, utilizationRate);
+		return
+			Data(
+				liquidity,
+				supplyRate,
+				borrowRate,
+				utilizationRate,
+				collateralFactor,
+				0
+			);
 	}
 
 	function getAaveData(address token) public view returns (Data memory) {
@@ -83,11 +117,32 @@ contract ProtocolsData {
 			uint256 borrowRate
 		) = aaveDataProviderV2.getReserveData(token);
 
+		(
+			,
+			uint256 ltv,
+			uint256 liquidationThreshold,
+			,
+			,
+			,
+			,
+			,
+			,
+
+		) = aaveDataProviderV2.getReserveConfigurationData(token);
+
 		uint256 utilizationRate = totalBorrows.mul(1 ether).div(
 			liquidity.add(totalBorrows)
 		);
 
-		return Data(liquidity, supplyRate, borrowRate, utilizationRate);
+		return
+			Data(
+				liquidity,
+				supplyRate,
+				borrowRate,
+				utilizationRate,
+				ltv,
+				liquidationThreshold
+			);
 	}
 
 	function getProtocolsData(address token)

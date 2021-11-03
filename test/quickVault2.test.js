@@ -9,7 +9,7 @@ const IERC20 = artifacts.require(
   "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20"
 );
 
-const { expectEvent } = require("@openzeppelin/test-helpers");
+const { time, expectEvent } = require("@openzeppelin/test-helpers");
 
 const {
   MATIC,
@@ -17,9 +17,9 @@ const {
   WMATIC,
   WETH,
   WBTC,
-  DAI,
+  USDT,
   USDC,
-  QUICK_LP,
+  QUICK_LP2: QUICK_LP,
   CURVE_POOL,
   toWei,
   fromWei,
@@ -29,25 +29,13 @@ const {
 const WITHDRAWAL_FEE = 10; // 0.1%
 const PERFORMANCE_FEE = 2000; // 20% performance
 
-contract("Quick Vault", ([]) => {
+contract("Quick Vault 2", ([]) => {
   before(async function () {
-    await network.provider.request({
-      method: "hardhat_reset",
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: process.env.NODE_URL,
-            blockNumber: 17900000,
-          },
-        },
-      ],
-    });
-
     [_owner, _user] = await ethers.getSigners();
     owner = _owner.address;
     user = _user.address;
 
-    await fixture(["Adapters", "EthaRegistry", "QuickDist"]);
+    await fixture(["Adapters", "EthaRegistry", "QuickDist2"]);
 
     cream = await get("CreamLogic");
     quick = await get("QuickswapLogic");
@@ -60,7 +48,7 @@ contract("Quick Vault", ([]) => {
     _vault = new web3.eth.Contract(vault.abi, vault.address);
     _memory = new web3.eth.Contract(memoryLogic.abi, memoryLogic.address);
 
-    dai = await IERC20.at(DAI);
+    usdt = await IERC20.at(USDT);
     usdc = await IERC20.at(USDC);
     wmatic = await IERC20.at(WMATIC);
     eth = await IERC20.at(WETH);
@@ -74,8 +62,8 @@ contract("Quick Vault", ([]) => {
     balances = await ethers.getContract("Balances");
     etha = await ethers.getContract("ETHAToken");
     factory = await ethers.getContract("VaultDistributionFactory");
-    quickVault = await ethers.getContract("QuickVault");
-    strat = await ethers.getContract("QuickStrat");
+    quickVault = await ethers.getContract("QuickVault2");
+    strat = await ethers.getContract("QuickStrat2");
     harvester = await ethers.getContract("Harvester");
     feeManager = await ethers.getContract("FeeManager");
 
@@ -91,11 +79,11 @@ contract("Quick Vault", ([]) => {
     await quickVault.changePerformanceFee(PERFORMANCE_FEE);
   });
 
-  it("should swap MATIC for DAI", async function () {
+  it("should swap MATIC for USDT", async function () {
     const amount = toWei(100);
 
     const data = await _quick.methods
-      .swap([MATIC, DAI], amount, 0, 0, 1)
+      .swap([MATIC, USDT], amount, 0, 0, 1)
       .encodeABI();
 
     const tx = await wallet.execute([quick.address], [data], {
@@ -106,15 +94,15 @@ contract("Quick Vault", ([]) => {
 
     expectEvent(tx, "LogSwap", {
       src: MATIC,
-      dest: DAI,
+      dest: USDT,
       amount: amount,
     });
 
     console.log("\tGas Used:", tx.receipt.gasUsed);
 
-    const balance = await dai.balanceOf(wallet.address);
-    console.log("\tDAI received:", fromWei(balance));
-    expect(fromWei(balance)).to.be.greaterThan(0);
+    const balance = await usdt.balanceOf(wallet.address);
+    console.log("\tUSDT received:", balance * 1e-6);
+    expect(balance * 1e-6).to.be.greaterThan(0);
   });
 
   it("should swap MATIC for USDC", async function () {
@@ -143,12 +131,12 @@ contract("Quick Vault", ([]) => {
     expect(balance * 1e-6).to.be.greaterThan(0);
   });
 
-  it("should add liquidity to quick USDC-DAI pool", async function () {
-    const daiBal = await dai.balanceOf(wallet.address);
+  it("should add liquidity to quick USDC-USDT pool", async function () {
+    const usdtBal = await usdt.balanceOf(wallet.address);
     const usdcBal = await usdc.balanceOf(wallet.address);
 
     const data = await _quick.methods
-      .addLiquidity(DAI, USDC, daiBal, usdcBal, 0, 0, 1, 1)
+      .addLiquidity(USDC, USDT, usdcBal, usdtBal, 0, 0, 1, 1)
       .encodeABI();
 
     const tx = await wallet.execute([quick.address], [data], {
@@ -157,8 +145,8 @@ contract("Quick Vault", ([]) => {
     });
 
     expectEvent(tx, "LogLiquidityAdd", {
-      tokenA: DAI,
-      tokenB: USDC,
+      tokenA: USDC,
+      tokenB: USDT,
     });
 
     console.log("\tGas Used:", tx.receipt.gasUsed);
@@ -213,11 +201,11 @@ contract("Quick Vault", ([]) => {
     expect(fromWei(balance)).to.be.greaterThan(0);
   });
 
-  it("should deposit LP tokens to ETHA quick vault starting with DAI only", async function () {
-    // Getting some DAI in wallet
+  it("should deposit LP tokens to ETHA quick vault starting with USDT only", async function () {
+    // Getting some USDT in wallet
     const amount = toWei(100);
     const data = await _quick.methods
-      .swap([MATIC, DAI], amount, 0, 0, 1)
+      .swap([MATIC, USDT], amount, 0, 0, 1)
       .encodeABI();
     await wallet.execute([quick.address], [data], {
       from: user,
@@ -227,16 +215,16 @@ contract("Quick Vault", ([]) => {
 
     // Executing lego tx
     const initialBalance = await quickVault.balanceOf(wallet.address);
-    const daiBalance = await dai.balanceOf(wallet.address);
+    const usdtBalance = await usdt.balanceOf(wallet.address);
 
-    // Swap 50% DAI to USDC
+    // Swap 50% USDT to USDC
     const data1 = await _curve.methods
-      .swap(CURVE_POOL, DAI, USDC, toBN(daiBalance).div(toBN(2)), 0, 1, 1) // store USDC received in memory contract pos 2
+      .swap(CURVE_POOL, USDT, USDC, toBN(usdtBalance).div(toBN(2)), 0, 1, 1) // store USDC received in memory contract pos 2
       .encodeABI();
 
     // Add liquidity to Quickswap
     const data2 = await _quick.methods
-      .addLiquidity(DAI, USDC, toBN(daiBalance).div(toBN(2)), 0, 0, 1, 1, 1) // store LP tokens received in memory
+      .addLiquidity(USDT, USDC, toBN(usdtBalance).div(toBN(2)), 0, 0, 1, 1, 1) // store LP tokens received in memory
       .encodeABI();
 
     // Deposit to quick vault
@@ -260,12 +248,13 @@ contract("Quick Vault", ([]) => {
     // EVENTS
 
     expectEvent(tx, "LogSwap", {
-      src: DAI,
+      src: USDT,
       dest: USDC,
+      amount: toBN(usdtBalance).div(toBN(2)),
     });
 
     expectEvent(tx, "LogLiquidityAdd", {
-      tokenA: DAI,
+      tokenA: USDT,
       tokenB: USDC,
     });
 
@@ -302,30 +291,9 @@ contract("Quick Vault", ([]) => {
     expect(fromWei(finalBalance) < fromWei(balance));
   });
 
-  it("should be able to remove liquidity from quickswap", async function () {
-    const balance = await quickLP.balanceOf(wallet.address);
-
-    // Remove liquidity from Quickswap
-    const data = await _quick.methods
-      .removeLiquidity(DAI, USDC, QUICK_LP, toBN(balance), 0, 0, 0, 1)
-      .encodeABI();
-
-    // Execute LEGO Tx
-    const tx = await wallet.execute([quick.address], [data], {
-      from: user,
-      gas: web3.utils.toHex(5e6),
-    });
-
-    console.log("\tGas Used:", tx.receipt.gasUsed);
-
-    // Lower ETHA Vault tokens
-    const finalBalance = await quickLP.balanceOf(wallet.address);
-    expect(fromWei(finalBalance)).to.be.equal(0);
-  });
-
   it("should be able to withdraw from ETHA vault as DAI", async function () {
     const balance = await quickVault.balanceOf(wallet.address);
-    const initialDAI = await dai.balanceOf(wallet.address);
+    const initialUSDT = await usdt.balanceOf(wallet.address);
 
     // Build LEGO transaction
 
@@ -337,20 +305,20 @@ contract("Quick Vault", ([]) => {
     // Remove liquidity from Quickswap
     const data2 = await _quick.methods
       .removeLiquidity(
-        DAI,
+        USDT,
         USDC,
         QUICK_LP,
-        0 /* amount LP (read from memory) */,
+        0 /* amount LP read from memory */,
         1 /* getId */,
-        0 /* setId1*/,
-        2 /* setId2 store USDC received from liq remove*/,
-        1 /* divider*/
+        1 /* setId1*/,
+        2 /* setId2*/,
+        2 /* divider*/
       )
       .encodeABI();
 
     // Swap USDC for DAI in curve
     const data3 = await _curve.methods
-      .swap(CURVE_POOL, USDC, DAI, 0, 2, 0, 1) // getId:2
+      .swap(CURVE_POOL, USDC, USDT, 0, 2, 0, 1) // getId:2
       .encodeABI();
 
     // Execute LEGO Tx
@@ -370,27 +338,30 @@ contract("Quick Vault", ([]) => {
     expect(fromWei(finalBalance) < fromWei(balance));
 
     // Greater DAI balance
-    const finalDAI = await dai.balanceOf(wallet.address);
+    const finalUSDT = await usdt.balanceOf(wallet.address);
     console.log(
-      `\tDAI Received from burning ${fromWei(
+      `\tUSDT Received from burning ${fromWei(
         toBN(balance).div(toBN(2))
-      )} Vault tokens: ${fromWei(finalDAI) - fromWei(initialDAI)} DAI`
+      )} Vault tokens: ${finalUSDT * 1e-6 - initialUSDT * 1e-6} USDT`
     );
-    expect(fromWei(finalDAI) > fromWei(initialDAI));
+    expect(finalUSDT * 1e-6 > initialUSDT * 1e-6).to.be.true;
   });
 
-  it("should have profits in ETHA vault", async function () {
+  it("Should have profits in ETHA vault", async function () {
     await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 7]); // add 7 days
     await ethers.provider.send("evm_mine"); // mine the nex
+
+    const calcTotalValue = await strat.calcTotalValue();
 
     const strat2 = await IStrat2.at(strat.address);
     totalYield = await strat2.totalYield();
     console.log("\tAvailable Quick Profits", fromWei(totalYield));
 
     expect(fromWei(totalYield)).to.be.greaterThan(0);
+    expect(fromWei(calcTotalValue)).to.be.greaterThan(0);
   });
 
-  it("should harvest profits in ETHA Vault", async function () {
+  it("Should harvest profits in ETHA Vault", async function () {
     await harvester.harvestVault(quickVault.address);
 
     const balance = await quickToken.balanceOf(owner);
@@ -407,8 +378,8 @@ contract("Quick Vault", ([]) => {
 
   it("Should collect dividends from ETHA Vault", async function () {
     const dividends = await quickVault.dividendOf(wallet.address);
-    console.log("\tUser available WBTC dividends", dividends / 10 ** 8);
-    expect(dividends / 10 ** 8).to.be.greaterThan(0);
+    console.log("\tUser available WMATIC dividends", fromWei(dividends));
+    expect(fromWei(dividends)).to.be.greaterThan(0);
 
     const data = await _vault.methods.claim(quickVault.address, 0).encodeABI();
 
@@ -419,9 +390,17 @@ contract("Quick Vault", ([]) => {
 
     console.log("\tGas Used:", tx.receipt.gasUsed);
 
-    const balance = await wbtc.balanceOf(wallet.address);
-    console.log("\tUser claimed WBTC rewards", balance / 10 ** 8);
-    expect(balance / 10 ** 8).to.be.equal(dividends / 10 ** 8);
+    expectEvent(tx, "VaultClaim", {
+      erc20: WMATIC,
+    });
+
+    expectEvent(tx, "Claim", {
+      erc20: etha.address,
+    });
+
+    const balance = await wmatic.balanceOf(wallet.address);
+    console.log("\tUser claimed WMATIC rewards", fromWei(balance));
+    expect(fromWei(balance)).to.be.equal(fromWei(dividends));
 
     const balanceETHA = await etha.balanceOf(wallet.address);
     console.log("\tUser claimed ETHA rewards", fromWei(balanceETHA));

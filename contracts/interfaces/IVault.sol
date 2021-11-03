@@ -24,6 +24,10 @@ interface IVault {
 
 	function owner() external view returns (address);
 
+	function distribution() external view returns (address);
+
+	function strat() external view returns (address);
+
 	function timelock() external view returns (address payable);
 
 	function claimOnBehalf(address recipient) external;
@@ -35,6 +39,8 @@ interface IVault {
 	function balanceOf(address) external view returns (uint256);
 
 	function totalYield() external returns (uint256);
+
+	function calcTotalValue() external view returns (uint256);
 
 	function deposit(uint256 amount) external;
 

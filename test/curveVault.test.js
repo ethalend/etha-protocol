@@ -2,7 +2,6 @@ const {
   deployments: { fixture, get },
 } = require("hardhat");
 
-const ETHAToken = artifacts.require("ETHAToken");
 const IWallet = artifacts.require("IWallet");
 const IStrat2 = artifacts.require("IStrat2");
 const ICurveGauge = artifacts.require("ICurveGauge");
@@ -28,24 +27,10 @@ const {
 
 const { expect } = require("chai");
 
-contract("Curve Vault", () => {
-  let registry,
-    wallet,
-    vault,
-    quick,
-    curve,
-    dai,
-    eth,
-    wmatic,
-    a3CRV,
-    curveVault,
-    strat,
-    harvester,
-    memory,
-    etha,
-    distRewards,
-    factory;
+const WITHDRAWAL_FEE = 10; // 0.1%
+const PERFORMANCE_FEE = 2000; // 20% performance
 
+contract("Curve Vault", () => {
   before(async function () {
     [_owner, _user] = await ethers.getSigners();
     owner = _owner.address;
@@ -78,6 +63,7 @@ contract("Curve Vault", () => {
     curveVault = await ethers.getContract("CurveVault");
     strat = await ethers.getContract("CurveStrat");
     harvester = await ethers.getContract("Harvester");
+    feeManager = await ethers.getContract("FeeManager");
 
     gauge = await ICurveGauge.at("0x19793B454D3AfC7b454F206Ffe95aDE26cA6912c");
 
@@ -86,6 +72,11 @@ contract("Curve Vault", () => {
     wallet = await IWallet.at(swAddress);
 
     console.log(`\nWallet Address: ${swAddress}`);
+  });
+
+  it("should set vault fee", async function () {
+    await feeManager.setVaultFee(curveVault.address, WITHDRAWAL_FEE);
+    await curveVault.changePerformanceFee(PERFORMANCE_FEE);
   });
 
   it("should swap MATIC for DAI in quickswap", async function () {
@@ -108,7 +99,7 @@ contract("Curve Vault", () => {
     console.log("\tGas Used:", tx.receipt.gasUsed);
 
     const balance = await dai.balanceOf(wallet.address);
-    console.log("DAI received:", fromWei(balance));
+    console.log("\tDAI received:", fromWei(balance));
     expect(fromWei(balance)).to.be.greaterThan(0);
   });
 
@@ -129,8 +120,8 @@ contract("Curve Vault", () => {
   });
 
   it("should initialize distribution contracts", async function () {
-    await time.advanceBlock();
-    await time.increase(time.duration.days(2));
+    await ethers.provider.send("evm_increaseTime", [10]); // add 10 seconds
+    await ethers.provider.send("evm_mine"); // mine the next block
 
     await etha.mint(factory.address, toWei(process.env.REWARD_AMOUNT_VAULTS));
 
@@ -202,7 +193,7 @@ contract("Curve Vault", () => {
     const balance = await curveVault.balanceOf(wallet.address);
 
     const data = await _vault.methods
-      .withdraw(curveVault.address, toBN(balance).div(toBN(3)), 0)
+      .withdraw(curveVault.address, toBN(balance).div(toBN(3)), 0, 0)
       .encodeABI();
 
     // Execute LEGO Tx
@@ -219,16 +210,19 @@ contract("Curve Vault", () => {
   });
 
   it("should be able to withdraw from ETHA vault as DAI", async function () {
+    await ethers.provider.send("evm_increaseTime", [60 * 60 * 24]); // add 1 day
+    await ethers.provider.send("evm_mine"); // mine the nex
+
     const balance = await curveVault.balanceOf(wallet.address);
     const initialDAI = await dai.balanceOf(wallet.address);
 
     // Build LEGO transaction
     const data1 = await _vault.methods
-      .withdraw(curveVault.address, toBN(balance).div(toBN(2)), 0)
+      .withdraw(curveVault.address, toBN(balance).div(toBN(2)), 0, 1)
       .encodeABI();
 
     const data2 = await _curve.methods
-      .removeLiquidity(CURVE_POOL, toBN(balance).div(toBN(2)), 0, 0, 0, 1)
+      .removeLiquidity(CURVE_POOL, 0, 0, 1, 0, 1)
       .encodeABI();
 
     // Execute LEGO Tx
@@ -240,6 +234,10 @@ contract("Curve Vault", () => {
         gas: web3.utils.toHex(5e6),
       }
     );
+
+    expectEvent(tx, "Claim", {
+      erc20: etha.address,
+    });
 
     console.log("\tGas Used:", tx.receipt.gasUsed);
 
@@ -253,8 +251,8 @@ contract("Curve Vault", () => {
   });
 
   it("Should have profits in ETHA vault", async function () {
-    await time.advanceBlock();
-    await time.increase(time.duration.days(7));
+    await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 7]); // add 7 days
+    await ethers.provider.send("evm_mine"); // mine the nex
 
     const calcTotalValue = await strat.calcTotalValue();
 
@@ -274,6 +272,13 @@ contract("Curve Vault", () => {
 
     const balance = await wmatic.balanceOf(owner);
     console.log("\tOwner WMATIC Fees Collected", fromWei(balance));
+
+    expect(fromWei(balance)).to.be.greaterThan(0);
+
+    // From withdraw fees
+    const balance2 = await a3CRV.balanceOf(owner);
+    console.log("\tLP collected:", fromWei(balance2));
+    expect(fromWei(balance2)).to.be.greaterThan(0);
   });
 
   it("Should collect dividends from ETHA Vault", async function () {
@@ -281,13 +286,19 @@ contract("Curve Vault", () => {
     console.log("\tUser available WETH dividends", fromWei(dividends));
     expect(fromWei(dividends)).to.be.greaterThan(0);
 
-    const _vault = new web3.eth.Contract(vault.abi, vault.address);
-
     const data = await _vault.methods.claim(curveVault.address, 0).encodeABI();
 
     const tx = await wallet.execute([vault.address], [data], {
       from: user,
       gas: web3.utils.toHex(5e6),
+    });
+
+    expectEvent(tx, "VaultClaim", {
+      erc20: WETH,
+    });
+
+    expectEvent(tx, "Claim", {
+      erc20: etha.address,
     });
 
     console.log("\tGas Used:", tx.receipt.gasUsed);

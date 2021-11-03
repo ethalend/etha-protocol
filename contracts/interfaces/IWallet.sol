@@ -26,6 +26,9 @@ interface IWallet {
 	event VaultClaim(address indexed erc20, uint256 tokenAmt);
 	event DelegateAdded(address delegate);
 	event DelegateRemoved(address delegate);
+	event Claim(address indexed erc20, uint256 tokenAmt);
+	event Staked(address indexed erc20, uint256 tokenAmt);
+	event Unstaked(address indexed erc20, uint256 tokenAmt);
 
 	function executeMetaTransaction(bytes memory sign, bytes memory data)
 		external;

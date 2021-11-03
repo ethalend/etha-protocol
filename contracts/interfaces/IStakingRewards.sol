@@ -13,11 +13,15 @@ interface IStakingRewards {
 
 	function totalSupply() external view returns (uint256);
 
+	function claimDate() external view returns (uint256);
+
 	function balanceOf(address account) external view returns (uint256);
 
 	function rewardsToken() external view returns (address);
 
 	function stakingToken() external view returns (address);
+
+	function rewardRate() external view returns (uint256);
 
 	// Mutative
 

@@ -9,6 +9,7 @@ import "../interfaces/IComptroller.sol";
 import "../interfaces/IWallet.sol";
 import "../interfaces/IRegistry.sol";
 import "../interfaces/IProtocolDistribution.sol";
+import "../interfaces/IAToken.sol";
 import "../libs/UniversalERC20.sol";
 import "./Helpers.sol";
 
@@ -44,6 +45,8 @@ contract DSMath is Helpers {
 }
 
 contract CreamHelpers is DSMath {
+	using UniversalERC20 for IERC20;
+
 	/**
 	 * @dev get ethereum address for trade
 	 */
@@ -78,25 +81,63 @@ contract CreamHelpers is DSMath {
 		}
 	}
 
-	function _stake(address erc20, uint256 amount) internal {
-		// Add same amount to distribution contract
+	function _sync(address erc20) internal {
 		address distribution = IRegistry(IWallet(address(this)).registry())
-		.distributionContract(erc20);
+			.distributionContract(erc20);
+
+		// If distribution contract exists
 		if (distribution != address(0)) {
-			IProtocolDistribution(distribution).stake(amount);
+			uint256 suppliedBalanceCream = wmul(
+				ICToken(getCrToken(erc20)).balanceOf(address(this)),
+				ICToken(getCrToken(erc20)).exchangeRateCurrent()
+			);
+			uint256 suppliedBalanceAave = IAToken(getAToken(erc20)).balanceOf(
+				address(this)
+			);
+
+			// total supplied for given token in 2 protocols
+			uint256 totalSupplied = add(
+				suppliedBalanceCream,
+				suppliedBalanceAave
+			);
+
+			// current staked amount
+			uint256 totalStaked = IProtocolDistribution(distribution).balanceOf(
+				address(this)
+			);
+
+			// if total staked is bigger, unstake
+			if (totalStaked > totalSupplied) {
+				IProtocolDistribution(distribution).withdraw(
+					sub(totalStaked, totalSupplied)
+				);
+			}
+
+			// if total supplied is bigger, stake
+			if (totalSupplied > totalStaked) {
+				IProtocolDistribution(distribution).stake(
+					sub(totalSupplied, totalStaked)
+				);
+			}
 		}
 	}
 
-	function _unstake(address erc20, uint256 amount) internal {
-		address distribution = IRegistry(IWallet(address(this)).registry())
-		.distributionContract(erc20);
+	function _payFees(address erc20, uint256 amt)
+		internal
+		returns (uint256 feesPaid)
+	{
+		(uint256 fee, uint256 maxFee, address feeRecipient) = getLendingFee(
+			erc20
+		);
 
-		if (distribution != address(0)) {
-			uint256 maxWithdrawalAmount = IProtocolDistribution(distribution)
-			.balanceOf(address(this));
+		if (fee > 0) {
+			require(feeRecipient != address(0), "ZERO ADDRESS");
 
-			IProtocolDistribution(distribution).withdraw(
-				amount > maxWithdrawalAmount ? maxWithdrawalAmount : amount
+			feesPaid = div(mul(amt, fee), maxFee);
+
+			IERC20(erc20).universalTransfer(
+				feeRecipient,
+				div(mul(amt, fee), maxFee)
 			);
 		}
 	}
@@ -146,7 +187,7 @@ contract CreamResolver is CreamHelpers {
 			assert(cToken.mint(toDeposit) == 0); // no error message on assert
 		}
 
-		_stake(erc20, realAmt);
+		_sync(erc20);
 
 		// set crTokens received
 		if (setId > 0) setUint(setId, realAmt);
@@ -165,29 +206,19 @@ contract CreamResolver is CreamHelpers {
 
 		ICToken cToken = ICToken(getCrToken(erc20));
 		uint256 toBurn = cToken.balanceOf(address(this));
-		if (toBurn > cTokenAmt) {
-			toBurn = cTokenAmt;
+		if (toBurn > realAmt) {
+			toBurn = realAmt;
 		}
 		require(cToken.redeem(toBurn) == 0, "something went wrong");
 		uint256 tokenReturned = wmul(toBurn, cToken.exchangeRateCurrent());
 
-		address registry = IWallet(address(this)).registry();
-		uint256 fee = IRegistry(registry).getFee();
+		_sync(erc20);
 
-		if (fee > 0) {
-			address feeRecipient = IRegistry(registry).feeRecipient();
+		uint256 feesPaid = _payFees(erc20, tokenReturned);
 
-			require(feeRecipient != address(0), "ZERO ADDRESS");
-
-			IERC20(erc20).universalTransfer(
-				feeRecipient,
-				div(mul(realAmt, fee), 100000)
-			);
-		}
-
-		// set amount of tokens received
+		// set amount of tokens redeemed minus fees
 		if (setId > 0) {
-			setUint(setId, tokenReturned);
+			setUint(setId, tokenReturned.sub(feesPaid));
 		}
 
 		emit LogRedeem(erc20, tokenReturned);
@@ -217,23 +248,13 @@ contract CreamResolver is CreamHelpers {
 			"something went wrong"
 		);
 
-		address registry = IWallet(address(this)).registry();
-		uint256 fee = IRegistry(registry).getFee();
+		_sync(erc20);
 
-		if (fee > 0) {
-			address feeRecipient = IRegistry(registry).feeRecipient();
-
-			require(feeRecipient != address(0), "ZERO ADDRESS");
-
-			IERC20(erc20).universalTransfer(
-				feeRecipient,
-				div(mul(tokenToReturn, fee), 100000)
-			);
-		}
+		uint256 feesPaid = _payFees(erc20, tokenToReturn);
 
 		// set amount of tokens received
 		if (setId > 0) {
-			setUint(setId, tokenToReturn);
+			setUint(setId, tokenToReturn.sub(feesPaid));
 		}
 
 		emit LogRedeem(erc20, tokenToReturn);

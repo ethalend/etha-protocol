@@ -1,6 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
+import "hardhat/console.sol";
 import "../interfaces/IWETH.sol";
 import "../interfaces/ILendingPool.sol";
 import "../interfaces/IAaveAddressProvider.sol";
@@ -11,6 +12,7 @@ import "../interfaces/IMemory.sol";
 import "../interfaces/IProtocolDistribution.sol";
 import "../libs/UniversalERC20.sol";
 import "./Helpers.sol";
+import "../interfaces/ICToken.sol";
 
 contract DSMath is Helpers {
 	function add(uint256 x, uint256 y) internal pure returns (uint256 z) {
@@ -44,6 +46,8 @@ contract DSMath is Helpers {
 }
 
 contract AaveHelpers is DSMath {
+	using UniversalERC20 for IERC20;
+
 	/**
 	 * @dev get ethereum address
 	 */
@@ -73,25 +77,63 @@ contract AaveHelpers is DSMath {
 		return uint16(0);
 	}
 
-	function _stake(address erc20, uint256 amount) internal {
-		// Add same amount to distribution contract
+	function _sync(address erc20) internal {
 		address distribution = IRegistry(IWallet(address(this)).registry())
-		.distributionContract(erc20);
+			.distributionContract(erc20);
+
+		// If distribution contract exists
 		if (distribution != address(0)) {
-			IProtocolDistribution(distribution).stake(amount);
+			uint256 suppliedBalanceCream = wmul(
+				ICToken(getCrToken(erc20)).balanceOf(address(this)),
+				ICToken(getCrToken(erc20)).exchangeRateCurrent()
+			);
+			uint256 suppliedBalanceAave = IAToken(getAToken(erc20)).balanceOf(
+				address(this)
+			);
+
+			// total supplied for given token in 2 protocols
+			uint256 totalSupplied = add(
+				suppliedBalanceCream,
+				suppliedBalanceAave
+			);
+
+			// current staked amount
+			uint256 totalStaked = IProtocolDistribution(distribution).balanceOf(
+				address(this)
+			);
+
+			// if total staked is bigger, unstake
+			if (totalStaked > totalSupplied) {
+				IProtocolDistribution(distribution).withdraw(
+					sub(totalStaked, totalSupplied)
+				);
+			}
+
+			// if total supplied is bigger, stake
+			if (totalSupplied > totalStaked) {
+				IProtocolDistribution(distribution).stake(
+					sub(totalSupplied, totalStaked)
+				);
+			}
 		}
 	}
 
-	function _unstake(address erc20, uint256 amount) internal {
-		address distribution = IRegistry(IWallet(address(this)).registry())
-		.distributionContract(erc20);
+	function _payFees(address erc20, uint256 amt)
+		internal
+		returns (uint256 feesPaid)
+	{
+		(uint256 fee, uint256 maxFee, address feeRecipient) = getLendingFee(
+			erc20
+		);
 
-		if (distribution != address(0)) {
-			uint256 maxWithdrawalAmount = IProtocolDistribution(distribution)
-			.balanceOf(address(this));
+		if (fee > 0) {
+			require(feeRecipient != address(0), "ZERO ADDRESS");
 
-			IProtocolDistribution(distribution).withdraw(
-				amount > maxWithdrawalAmount ? maxWithdrawalAmount : amount
+			feesPaid = div(mul(amt, fee), maxFee);
+
+			IERC20(erc20).universalTransfer(
+				feeRecipient,
+				div(mul(amt, fee), maxFee)
 			);
 		}
 	}
@@ -151,7 +193,7 @@ contract AaveResolver is AaveHelpers {
 			getReferralCode()
 		);
 
-		_stake(erc20, realAmt);
+		_sync(erc20);
 
 		// set aTokens received
 		if (setId > 0) {
@@ -189,25 +231,13 @@ contract AaveResolver is AaveHelpers {
 		ILendingPool _lendingPool = ILendingPool(getLendingPoolAddress());
 		_lendingPool.withdraw(erc20, realAmt, address(this));
 
-		address registry = IWallet(address(this)).registry();
-		uint256 fee = IRegistry(registry).getFee();
+		_sync(erc20);
 
-		if (fee > 0) {
-			address feeRecipient = IRegistry(registry).feeRecipient();
+		uint256 feesPaid = _payFees(erc20, realAmt);
 
-			require(feeRecipient != address(0), "ZERO ADDRESS");
-
-			IERC20(erc20).universalTransfer(
-				feeRecipient,
-				div(mul(realAmt, fee), 100000)
-			);
-		}
-
-		_unstake(erc20, realAmt);
-
-		// set amount of tokens received
+		// set amount of tokens received minus fees
 		if (setId > 0) {
-			setUint(setId, IERC20(erc20).universalBalanceOf(address(this)));
+			setUint(setId, realAmt.sub(feesPaid));
 		}
 
 		emit LogRedeem(erc20, realAmt);

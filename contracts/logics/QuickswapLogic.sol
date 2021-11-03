@@ -124,16 +124,16 @@ contract QuickswapResolver is Helpers {
 		tokenBReal.universalApprove(address(router), realAmtB);
 
 		(uint256 amountA, uint256 amountB, uint256 liquidity) = router
-		.addLiquidity(
-			address(tokenAReal),
-			address(tokenBReal),
-			realAmtA,
-			realAmtB,
-			1,
-			1,
-			address(this),
-			block.timestamp + 1
-		);
+			.addLiquidity(
+				address(tokenAReal),
+				address(tokenBReal),
+				realAmtA,
+				realAmtB,
+				1,
+				1,
+				address(this),
+				block.timestamp + 1
+			);
 
 		// set aTokens received
 		if (setId > 0) {
